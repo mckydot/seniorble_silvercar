@@ -126,3 +126,51 @@ body {
 .guardian_name{
   font-size: 12px;
 }
+
+.card2 {
+  margin: 16px;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+
+  display: flex;
+  flex-direction: column;
+
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.detailTitle{
+  font-weight: 600;
+}
+
+.danger{
+  font-size: 25px;
+  font-weight:700;
+  color: red;
+  display: none;
+}
+
+.safe{
+  font-size: 25px;
+  font-weight: 700;
+  color: rgb(26, 229, 3);
+}
+
+.status{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statusCard{
+  flex: 1;
+  margin: 16px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 16px;
+
+  display: flex;
+  flex-direction: column;
+  
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
