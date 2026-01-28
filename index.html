@@ -1,13 +1,45 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
     <title>Seniorble</title>
 </head>
+
 <body>
-    
+    <nav class="mobile-nav">
+        <h1 class="title">Seniorble</h1>
+    </nav>
+
+    <div class="alert">
+        <p class="alert_massage">센서가 낙상을 감지했습니다</p>
+        <p class="notice_msg">
+            <span class="one_m">1</span>분 후 자동으로 알림이 보내집니다
+        </p>
+    </div>
+
+    <!-- ✅ 카드 영역 -->
+    <div class="card">
+        <div class="location_div">
+            <p class="location">
+                현재위치 :
+                <span class="location_name" id="location_name">
+                    전남 금호리조트
+                </span>
+            </p>
+        </div>
+
+        <div class="emergency">
+            <div class="emergency-wrap" id="emergency_wrap">
+                <div class="emergency-btn">
+                    긴급 호출
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="js/main.js"></script>
 </body>
 </html>
