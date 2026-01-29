@@ -26,6 +26,10 @@ body {
   font-weight: 650;
 }
 
+.main_wrap{
+  padding: 16px;
+}
+
 /* 경고 메시지 */
 .alert {
   text-align: center;
@@ -49,7 +53,6 @@ body {
 
 /* ✅ 카드 스타일 */
 .card {
-  margin: 16px;
   padding: 20px;
   background: white;
   border-radius: 16px;
@@ -128,8 +131,8 @@ body {
 }
 
 .card2 {
-  margin: 16px;
   padding: 20px;
+  margin-top: 16px;
   background: white;
   border-radius: 16px;
 
@@ -164,8 +167,8 @@ body {
 
 .statusCard{
   flex: 1;
-  margin: 16px;
-  padding: 20px;
+  padding: 15px;
+  margin-top: 15px;
   background-color: white;
   border-radius: 16px;
 
@@ -173,4 +176,12 @@ body {
   flex-direction: column;
   
   box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.left{
+  margin-right: 8px;
+}
+
+.right{
+  margin-left: 8px;
 }

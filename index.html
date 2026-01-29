@@ -13,47 +13,51 @@
         <h1 class="title">Seniorble</h1>
     </nav>
 
-    <!-- ✅ 카드 영역 -->
-    <div class="card">
-        <div class="alert">
-            <p class="alert_massage">센서가 낙상을 감지했습니다</p>
-            <p class="notice_msg">
-                <span class="one_m">1</span>분 후 자동으로 알림이 보내집니다
-            </p>
-        </div>
+    <div class="main_wrap">
+        <!-- ✅ 카드 영역 -->
+        <div class="card">
+            <div class="alert">
+                <p class="alert_massage">센서가 낙상을 감지했습니다</p>
+                <p class="notice_msg">
+                    <span class="one_m">1</span>분 후 자동으로 알림이 보내집니다
+                </p>
+            </div>
 
-        <div class="location_div">
-            <p class="location">
-                현재위치 :
-                <span class="location_name" id="location_name">
-                    전남 금호리조트
-                </span>
-            </p>
-        </div>
+            <div class="location_div">
+                <p class="location">
+                    현재위치 :
+                    <span class="location_name" id="location_name">
+                        전남 금호리조트
+                    </span>
+                </p>
+            </div>
 
-        <div class="emergency">
-            <div class="emergency-wrap" id="emergency_wrap">
-                <div class="emergency-btn">
-                    긴급 호출
+            <div class="emergency">
+                <div class="emergency-wrap" id="emergency_wrap">
+                    <div class="emergency-btn">
+                        긴급 호출
+                    </div>
                 </div>
             </div>
+            <div class="guardian">
+                <p class="guardian_name">주 보호자 : <span>정상엽</span></p>
+            </div>
         </div>
-        <div class="guardian">
-            <p class="guardian_name">주 보호자 : <span>정상엽</span></p>
-        </div>
-    </div>
 
-    <div class="card2">
-        <p class="riskGrade detailTitle">현재 위험도</p>
-        <span class="danger">위험</span>
-        <span class="safe">안전</span>
-    </div>
-
-    <div class="status">
-        <div class="statusCard left">
-            <p class="velocity detailTitle">보행속도</p>
+        <div class="card2">
+            <p class="riskGrade detailTitle">현재 위험도</p>
+            <span class="danger">위험</span>
+            <span class="safe">안전</span>
         </div>
-        <div class="statusCard right"></div>
+
+        <div class="status">
+            <div class="statusCard left">
+                <p class="velocity detailTitle">보행속도</p>
+            </div>
+            <div class="statusCard right">
+                <p class="inclination detailTitle">보행보조기구 기울기</p>
+            </div>
+        </div>
     </div>
 
     <script src="js/main.js"></script>
