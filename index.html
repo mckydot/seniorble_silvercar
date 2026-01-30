@@ -16,7 +16,7 @@
     <div class="main_wrap">
         <!-- ✅ 카드 영역 -->
         <div class="card">
-            <div class="alert">
+            <div class="alert hidden">
                 <p class="alert_massage">센서가 낙상을 감지했습니다</p>
                 <p class="notice_msg">
                     <span class="one_m">1</span>분 후 자동으로 알림이 보내집니다
@@ -46,7 +46,7 @@
 
         <div class="card2">
             <p class="riskGrade detailTitle">현재 위험도</p>
-            <span class="danger">위험</span>
+            <span class="danger hidden">위험</span>
             <span class="safe">안전</span>
         </div>
 
@@ -55,13 +55,14 @@
                 <p class="velocity detailTitle">보행속도</p>
                 <div class="velocityStatus">
                     <p class="vtitle">현재 속도</p>
-                    <p class="value">(<span>1.35</span> m/s)</p>
+                    <p class="value valueColor1">(<span>1.35</span> m/s)</p>
                 </div>
             </div>
             <div class="statusCard right">
                 <p class="inclination detailTitle">현재 기울기</p>
                 <div class="velocityStatus2">
-                    <p class="value inclinationValue"><span>안전</span></p>
+                    <p class="inclinationValue valueColor1"><span>안전</span></p>
+                    <p class="inclinationValue2 valueColor2 hidden"><span>위험</span></p>
                 </div>
             </div>
         </div>
@@ -104,6 +105,10 @@
             <span class="label">프로필</span>
         </button>
     </nav>
+
+    <button id="change">
+        위험 상황 UI로 전환
+    </button>
 
     <script src="js/main.js"></script>
 </body>

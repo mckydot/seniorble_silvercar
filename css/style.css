@@ -33,7 +33,6 @@ body {
 /* 경고 메시지 */
 .alert {
   text-align: center;
-  display: none;
 }
 
 .alert_massage {
@@ -150,7 +149,6 @@ body {
   font-size: 25px;
   font-weight:700;
   color: red;
-  display: none;
 }
 
 .safe{
@@ -213,11 +211,23 @@ body {
 
 .value{
   font-weight: 800;
+}
+
+.valueColor1{
   color: rgb(26, 229, 3);
+}
+.valueColor2{
+  color: red;
 }
 
 .inclinationValue{
   font-size: 32px;
+  font-weight: 800;
+}
+
+.inclinationValue2{
+  font-size: 32px;
+  font-weight: 800;
 }
 
 /* 하단 네비게이션 */
@@ -261,4 +271,8 @@ body {
 .nav-item.active {
   color: #e60000;
   font-weight: 600;
+}
+
+.hidden {
+  display: none;
 }
