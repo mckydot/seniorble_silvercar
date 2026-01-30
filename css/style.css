@@ -219,3 +219,46 @@ body {
 .inclinationValue{
   font-size: 32px;
 }
+
+/* 하단 네비게이션 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 64px;
+  background: white;
+
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+
+  border-top: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 -2px 6px rgba(0,0,0,0.04);
+}
+
+/* 각 아이템 */
+.nav-item {
+  flex: 1;
+  background: none;
+  border: none;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 11px;
+  color: #888;
+  cursor: pointer;
+}
+
+.nav-item .icon {
+  font-size: 20px;
+}
+
+/* 활성화 */
+.nav-item.active {
+  color: #e60000;
+  font-weight: 600;
+}
