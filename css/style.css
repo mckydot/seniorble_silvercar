@@ -277,3 +277,66 @@ body {
 .hidden {
   display: none;
 }
+
+.card3 {
+  padding: 10px;
+  background: white;
+  border-radius: 16px;
+  margin-top: 16px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.patientTitle{
+  display: flex;
+  justify-content :first baseline;
+  width: 100%;
+}
+
+.patientTitleP{
+  font-weight: 600;
+}
+
+.patientContent{
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.profileWrap{
+  width: 30%;
+  display: flex;
+  justify-content: center;
+}
+
+.patientProfile {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  overflow: hidden;   /* 이미지 튀어나오는 거 차단 */
+  flex-shrink: 0;     /* 옆 내용 때문에 줄어들지 않게 */
+
+  background-color: #eee;
+}
+
+.patientProfile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* 비율 유지 + 잘라내기 */
+}
+
+.patientInfo{
+  width: 70%;
+}
+
+.profileC{
+  font-weight: 600;
+}
+
+.recordTimeline{
+  color: #888;
+}
