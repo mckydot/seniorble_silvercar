@@ -5,12 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <title>Seniorble</title>
 </head>
 
 <body>
     <nav class="mobile-nav">
         <h1 class="title">Seniorble</h1>
+        <div class="nav-subtitle">세심한 시니어 케어</div>
     </nav>
 
     <div class="main_wrap">
@@ -44,25 +46,73 @@
             </div>
         </div>
 
-        <div class="card2">
-            <p class="riskGrade detailTitle">현재 위험도</p>
-            <span class="danger hidden">위험</span>
-            <span class="safe">안전</span>
-        </div>
-
-        <div class="status">
-            <div class="statusCard left">
-                <p class="velocity detailTitle">보행속도</p>
-                <div class="velocityStatus">
-                    <p class="vtitle">현재 속도</p>
-                    <p class="value valueColor1">(<span>1.35</span> m/s)</p>
+        <!-- 통합 상태 모니터링 카드 -->
+        <div class="status-monitor">
+            <div class="monitor-header">
+                <h3 class="monitor-title">실시간 모니터링</h3>
+                <div class="monitor-badge">
+                    <div class="status-indicator safe-indicator"></div>
+                    <span class="status-text safe-text">정상</span>
+                    <span class="status-text danger-text hidden">위험</span>
                 </div>
             </div>
-            <div class="statusCard right">
-                <p class="inclination detailTitle">현재 기울기</p>
-                <div class="velocityStatus2">
-                    <p class="inclinationValue valueColor1"><span>안전</span></p>
-                    <p class="inclinationValue2 valueColor2 hidden"><span>위험</span></p>
+
+            <div class="monitor-grid">
+                <!-- 보행 속도 -->
+                <div class="monitor-item">
+                    <div class="monitor-icon" style="background: linear-gradient(135deg, #06D6A0 0%, #04B388 100%);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                    </div>
+                    <div class="monitor-info">
+                        <p class="monitor-label">보행 속도</p>
+                        <div class="monitor-value-wrapper">
+                            <span class="monitor-value safe-value">1.35</span>
+                            <span class="monitor-unit">m/s</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill safe-progress" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 자세 안정성 -->
+                <div class="monitor-item">
+                    <div class="monitor-icon" style="background: linear-gradient(135deg, #4A8583 0%, #2D5F5D 100%);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M12 12v8m-4-4l4 4 4-4"/>
+                        </svg>
+                    </div>
+                    <div class="monitor-info">
+                        <p class="monitor-label">자세 안정성</p>
+                        <div class="monitor-value-wrapper">
+                            <span class="monitor-status safe-status">안정</span>
+                            <span class="monitor-status danger-status hidden">불안정</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill safe-progress" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 활동 수준 -->
+                <div class="monitor-item">
+                    <div class="monitor-icon" style="background: linear-gradient(135deg, #E8B863 0%, #D4A043 100%);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+                        </svg>
+                    </div>
+                    <div class="monitor-info">
+                        <p class="monitor-label">활동 수준</p>
+                        <div class="monitor-value-wrapper">
+                            <span class="monitor-status safe-status">적정</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill safe-progress" style="width: 65%"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
