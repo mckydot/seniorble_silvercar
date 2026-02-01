@@ -280,6 +280,7 @@ body {
 
 .card3 {
   padding: 10px;
+  padding-bottom: 20px;
   background: white;
   border-radius: 16px;
   margin-top: 16px;
@@ -299,6 +300,7 @@ body {
 }
 
 .patientTitleP{
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -321,6 +323,10 @@ body {
   flex-shrink: 0;     /* 옆 내용 때문에 줄어들지 않게 */
 
   background-color: #eee;
+}
+
+.profileValue{
+  font-weight: 500;
 }
 
 .patientProfile img {
