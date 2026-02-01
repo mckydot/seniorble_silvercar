@@ -49,55 +49,54 @@
         <!-- 통합 상태 모니터링 카드 -->
         <div class="status-monitor">
             <div class="monitor-header">
-                <h3 class="monitor-title">실시간 모니터링</h3>
+                <h3 class="monitor-title">보조기구 상태</h3>
                 <div class="monitor-badge">
                     <div class="status-indicator safe-indicator"></div>
-                    <span class="status-text safe-text">정상</span>
-                    <span class="status-text danger-text hidden">위험</span>
+                    <span class="status-text safe-text">정상 작동</span>
+                    <span class="status-text danger-text hidden">위험 감지</span>
                 </div>
             </div>
 
             <div class="monitor-grid">
-                <!-- 보행 속도 -->
-                <div class="monitor-item">
-                    <div class="monitor-icon" style="background: linear-gradient(135deg, #06D6A0 0%, #04B388 100%);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                        </svg>
-                    </div>
-                    <div class="monitor-info">
-                        <p class="monitor-label">보행 속도</p>
-                        <div class="monitor-value-wrapper">
-                            <span class="monitor-value safe-value">1.35</span>
-                            <span class="monitor-unit">m/s</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill safe-progress" style="width: 75%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 자세 안정성 -->
+                <!-- 이동 속도 -->
                 <div class="monitor-item">
                     <div class="monitor-icon" style="background: linear-gradient(135deg, #4A8583 0%, #2D5F5D 100%);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <circle cx="12" cy="8" r="4"/>
-                            <path d="M12 12v8m-4-4l4 4 4-4"/>
+                            <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+                            <line x1="6" y1="1" x2="6" y2="4"/>
+                            <line x1="10" y1="1" x2="10" y2="4"/>
+                            <line x1="14" y1="1" x2="14" y2="4"/>
                         </svg>
                     </div>
                     <div class="monitor-info">
-                        <p class="monitor-label">자세 안정성</p>
+                        <p class="monitor-label">이동 속도</p>
                         <div class="monitor-value-wrapper">
-                            <span class="monitor-status safe-status">안정</span>
-                            <span class="monitor-status danger-status hidden">불안정</span>
+                            <span class="monitor-value safe-value">0.8</span>
+                            <span class="monitor-unit">m/s</span>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill safe-progress" style="width: 85%"></div>
-                        </div>
+                        <p class="monitor-description">적정 보행 속도</p>
                     </div>
                 </div>
 
-                <!-- 활동 수준 -->
+                <!-- 기울기 센서 -->
+                <div class="monitor-item">
+                    <div class="monitor-icon" style="background: linear-gradient(135deg, #06D6A0 0%, #04B388 100%);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <div class="monitor-info">
+                        <p class="monitor-label">기울기</p>
+                        <div class="monitor-value-wrapper">
+                            <span class="monitor-status safe-status">안정</span>
+                        </div>
+                        <p class="monitor-description">정상 범위 (±15°)</p>
+                    </div>
+                </div>
+
+                <!-- 가속도 -->
                 <div class="monitor-item">
                     <div class="monitor-icon" style="background: linear-gradient(135deg, #E8B863 0%, #D4A043 100%);">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
@@ -105,13 +104,37 @@
                         </svg>
                     </div>
                     <div class="monitor-info">
-                        <p class="monitor-label">활동 수준</p>
+                        <p class="monitor-label">가속도</p>
                         <div class="monitor-value-wrapper">
-                            <span class="monitor-status safe-status">적정</span>
+                            <span class="monitor-value safe-value">1.2</span>
+                            <span class="monitor-unit">m/s²</span>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill safe-progress" style="width: 65%"></div>
-                        </div>
+                        <p class="monitor-description">정상적인 움직임</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 충격 감지 알림 (충격 발생 시에만 표시) -->
+            <div class="impact-alert hidden">
+                <div class="impact-header">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span class="impact-title">충격 감지</span>
+                </div>
+                <div class="impact-body">
+                    <div class="impact-detail">
+                        <span class="impact-label">충격 강도:</span>
+                        <span class="impact-value danger-value">8.5</span>
+                        <span class="impact-unit">m/s²</span>
+                    </div>
+                    <div class="impact-status">
+                        <span class="verification-badge">
+                            <span class="verification-icon">📹</span>
+                            영상 분석 중...
+                        </span>
                     </div>
                 </div>
             </div>
