@@ -12,6 +12,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -22,16 +23,19 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    padding: 0;
 }
 
 body::before {
     content: '';
-    position: absolute;
-    top: -50%;
+    position: fixed;
+    top: -30%;
     right: -20%;
-    width: 800px;
-    height: 800px;
+    width: 100vw;
+    height: 100vw;
+    max-width: 600px;
+    max-height: 600px;
     background: radial-gradient(circle, rgba(232, 184, 99, 0.15) 0%, transparent 70%);
     border-radius: 50%;
     animation: float 20s ease-in-out infinite;
@@ -39,11 +43,13 @@ body::before {
 
 body::after {
     content: '';
-    position: absolute;
-    bottom: -30%;
-    left: -15%;
-    width: 600px;
-    height: 600px;
+    position: fixed;
+    bottom: -20%;
+    left: -20%;
+    width: 80vw;
+    height: 80vw;
+    max-width: 500px;
+    max-height: 500px;
     background: radial-gradient(circle, rgba(45, 95, 93, 0.08) 0%, transparent 70%);
     border-radius: 50%;
     animation: float 25s ease-in-out infinite reverse;
@@ -57,7 +63,7 @@ body::after {
     }
 
     50% {
-        transform: translate(-30px, -50px) scale(1.1);
+        transform: translate(-20px, -30px) scale(1.05);
     }
 }
 
@@ -66,7 +72,7 @@ body::after {
     z-index: 1;
     width: 100%;
     max-width: 440px;
-    padding: 20px;
+    padding: 16px;
     animation: fadeInUp 0.8s ease-out;
 }
 
@@ -83,10 +89,10 @@ body::after {
 }
 
 .login-card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
     border-radius: 24px;
-    padding: 48px 40px;
+    padding: 40px 28px;
     box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.08),
         0 0 1px rgba(0, 0, 0, 0.1);
@@ -121,7 +127,7 @@ body::after {
 
 .logo {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
     animation: fadeIn 1s ease-out 0.3s both;
 }
 
@@ -137,18 +143,18 @@ body::after {
 
 .logo-text {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 42px;
+    font-size: 38px;
     font-weight: 600;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     letter-spacing: 1px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .logo-subtitle {
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-light);
     font-weight: 300;
     letter-spacing: 2px;
@@ -157,25 +163,25 @@ body::after {
 
 .welcome-text {
     text-align: center;
-    margin-bottom: 36px;
+    margin-bottom: 28px;
     animation: fadeIn 1s ease-out 0.5s both;
 }
 
 .welcome-text h2 {
-    font-size: 24px;
+    font-size: 22px;
     color: var(--text-dark);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 700;
 }
 
 .welcome-text p {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-light);
     font-weight: 300;
 }
 
 .form-group {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     animation: fadeIn 1s ease-out 0.7s both;
 }
 
@@ -184,7 +190,7 @@ body::after {
     font-size: 13px;
     font-weight: 500;
     color: var(--text-dark);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     letter-spacing: 0.3px;
 }
 
@@ -194,7 +200,7 @@ body::after {
 
 .form-group input {
     width: 100%;
-    padding: 14px 18px;
+    padding: 14px 16px;
     font-size: 15px;
     border: 2px solid var(--border);
     border-radius: 12px;
@@ -219,11 +225,11 @@ body::after {
 
 .input-icon {
     position: absolute;
-    right: 16px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-light);
-    font-size: 18px;
+    font-size: 16px;
     pointer-events: none;
     transition: color 0.3s ease;
 }
@@ -236,22 +242,22 @@ body::after {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 28px;
-    font-size: 13px;
+    margin-bottom: 24px;
+    font-size: 12px;
     animation: fadeIn 1s ease-out 0.9s both;
 }
 
 .remember-me {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
     color: var(--text-dark);
 }
 
 .remember-me input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     accent-color: var(--primary);
 }
@@ -275,13 +281,13 @@ body::after {
     transition: width 0.3s ease;
 }
 
-.forgot-password:hover::after {
-    width: 100%;
+.forgot-password:active {
+    opacity: 0.7;
 }
 
 .login-button {
     width: 100%;
-    padding: 16px;
+    padding: 15px;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     color: white;
     border: none;
@@ -295,6 +301,7 @@ body::after {
     position: relative;
     overflow: hidden;
     animation: fadeIn 1s ease-out 1.1s both;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .login-button::before {
@@ -310,24 +317,20 @@ body::after {
     transition: width 0.6s, height 0.6s;
 }
 
-.login-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(45, 95, 93, 0.35);
-}
-
-.login-button:hover::before {
-    width: 400px;
-    height: 400px;
-}
-
 .login-button:active {
-    transform: translateY(0);
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(45, 95, 93, 0.2);
+}
+
+.login-button:active::before {
+    width: 300px;
+    height: 300px;
 }
 
 .divider {
     display: flex;
     align-items: center;
-    margin: 32px 0;
+    margin: 28px 0;
     animation: fadeIn 1s ease-out 1.3s both;
 }
 
@@ -340,8 +343,8 @@ body::after {
 }
 
 .divider span {
-    padding: 0 16px;
-    font-size: 12px;
+    padding: 0 14px;
+    font-size: 11px;
     color: var(--text-light);
     font-weight: 300;
     letter-spacing: 1px;
@@ -349,8 +352,8 @@ body::after {
 
 .social-login {
     display: flex;
-    gap: 12px;
-    margin-bottom: 32px;
+    gap: 10px;
+    margin-bottom: 28px;
     animation: fadeIn 1s ease-out 1.5s both;
 }
 
@@ -365,27 +368,27 @@ body::after {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-dark);
-    gap: 8px;
+    gap: 6px;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.social-button:hover {
+.social-button:active {
     border-color: var(--primary);
     background: var(--cream);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: scale(0.98);
 }
 
 .social-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
 }
 
 .signup-link {
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-light);
     animation: fadeIn 1s ease-out 1.7s both;
 }
@@ -397,20 +400,112 @@ body::after {
     transition: color 0.3s ease;
 }
 
-.signup-link a:hover {
-    color: var(--accent);
+.signup-link a:active {
+    opacity: 0.7;
 }
 
+/* 모바일 최적화 */
 @media (max-width: 480px) {
+    .container {
+        padding: 12px;
+    }
+
     .login-card {
-        padding: 36px 28px;
+        padding: 32px 24px;
+        border-radius: 20px;
     }
 
     .logo-text {
-        font-size: 36px;
+        font-size: 34px;
+    }
+
+    .logo-subtitle {
+        font-size: 10px;
     }
 
     .welcome-text h2 {
         font-size: 20px;
+    }
+
+    .welcome-text p {
+        font-size: 12px;
+    }
+
+    .form-group input {
+        padding: 13px 14px;
+        font-size: 14px;
+    }
+
+    .form-options {
+        font-size: 11px;
+    }
+
+    .login-button {
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    .social-button {
+        padding: 11px 8px;
+        font-size: 12px;
+        gap: 4px;
+    }
+
+    .social-icon {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+@media (max-width: 360px) {
+    .login-card {
+        padding: 28px 20px;
+    }
+
+    .logo-text {
+        font-size: 30px;
+    }
+
+    .welcome-text h2 {
+        font-size: 18px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .social-login {
+        gap: 8px;
+    }
+}
+
+/* 작은 화면에서 세로 방향 */
+@media (max-height: 700px) and (max-width: 480px) {
+    .container {
+        padding: 8px;
+    }
+
+    .login-card {
+        padding: 24px 20px;
+    }
+
+    .logo {
+        margin-bottom: 24px;
+    }
+
+    .welcome-text {
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .divider {
+        margin: 20px 0;
+    }
+
+    .social-login {
+        margin-bottom: 20px;
     }
 }

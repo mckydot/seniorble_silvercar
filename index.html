@@ -1,212 +1,81 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Seniorble - 로그인</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <title>Seniorble</title>
+    <link rel="stylesheet" href="css/login.css">
 </head>
-
 <body>
-    <nav class="mobile-nav">
-        <h1 class="title">Seniorble</h1>
-        <div class="nav-subtitle">세심한 시니어 케어</div>
-    </nav>
-
-    <div class="main_wrap">
-        <!-- ✅ 카드 영역 -->
-        <div class="card">
-            <div class="alert hidden">
-                <p class="alert_massage">센서가 낙상을 감지했습니다</p>
-                <p class="notice_msg">
-                    <span class="one_m">1</span>분 후 자동으로 알림이 보내집니다
-                </p>
+    <div class="container">
+        <div class="login-card">
+            <div class="logo">
+                <div class="logo-text">Seniorble</div>
+                <div class="logo-subtitle">세심한 시니어 케어</div>
             </div>
 
-            <div class="location_div">
-                <p class="location">
-                    현재위치 :
-                    <span class="location_name" id="location_name">
-                        전남 금호리조트
-                    </span>
-                </p>
+            <div class="welcome-text">
+                <h2>다시 만나서 반갑습니다</h2>
+                <p>안전하고 편안한 케어를 시작하세요</p>
             </div>
 
-            <div class="emergency">
-                <div class="emergency-wrap" id="emergency_wrap">
-                    <div class="emergency-btn">
-                        긴급 호출
-                    </div>
-                </div>
-            </div>
-            <div class="guardian">
-                <p class="guardian_name">주 보호자 : <span>정상엽</span></p>
-            </div>
-        </div>
-
-        <!-- 통합 상태 모니터링 카드 -->
-        <div class="status-monitor">
-            <div class="monitor-header">
-                <h3 class="monitor-title">보조기구 상태</h3>
-                <div class="monitor-badge">
-                    <div class="status-indicator safe-indicator"></div>
-                    <span class="status-text safe-text">정상 작동</span>
-                    <span class="status-text danger-text hidden">위험 감지</span>
-                </div>
-            </div>
-
-            <div class="monitor-grid">
-                <!-- 이동 속도 -->
-                <div class="monitor-item">
-                    <div class="monitor-icon" style="background: linear-gradient(135deg, #4A8583 0%, #2D5F5D 100%);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
-                            <line x1="6" y1="1" x2="6" y2="4"/>
-                            <line x1="10" y1="1" x2="10" y2="4"/>
-                            <line x1="14" y1="1" x2="14" y2="4"/>
-                        </svg>
-                    </div>
-                    <div class="monitor-info">
-                        <p class="monitor-label">이동 속도</p>
-                        <div class="monitor-value-wrapper">
-                            <span class="monitor-value safe-value">0.8</span>
-                            <span class="monitor-unit">m/s</span>
-                        </div>
-                        <p class="monitor-description">적정 보행 속도</p>
+            <form>
+                <div class="form-group">
+                    <label for="email">이메일</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" placeholder="your@email.com" required autocomplete="email">
+                        <span class="input-icon">✉</span>
                     </div>
                 </div>
 
-                <!-- 기울기 센서 -->
-                <div class="monitor-item">
-                    <div class="monitor-icon" style="background: linear-gradient(135deg, #06D6A0 0%, #04B388 100%);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                            <path d="M2 17l10 5 10-5"/>
-                            <path d="M2 12l10 5 10-5"/>
-                        </svg>
-                    </div>
-                    <div class="monitor-info">
-                        <p class="monitor-label">기울기</p>
-                        <div class="monitor-value-wrapper">
-                            <span class="monitor-status safe-status">안정</span>
-                        </div>
-                        <p class="monitor-description">정상 범위 (±15°)</p>
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                        <span class="input-icon">🔒</span>
                     </div>
                 </div>
 
-                <!-- 가속도 -->
-                <div class="monitor-item">
-                    <div class="monitor-icon" style="background: linear-gradient(135deg, #E8B863 0%, #D4A043 100%);">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-                        </svg>
-                    </div>
-                    <div class="monitor-info">
-                        <p class="monitor-label">가속도</p>
-                        <div class="monitor-value-wrapper">
-                            <span class="monitor-value safe-value">1.2</span>
-                            <span class="monitor-unit">m/s²</span>
-                        </div>
-                        <p class="monitor-description">정상적인 움직임</p>
-                    </div>
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox">
+                        <span>로그인 상태 유지</span>
+                    </label>
+                    <a href="#" class="forgot-password">비밀번호 찾기</a>
                 </div>
+
+                <button type="submit" class="login-button">로그인</button>
+            </form>
+
+            <div class="divider">
+                <span>또는</span>
             </div>
 
-            <!-- 충격 감지 알림 (충격 발생 시에만 표시) -->
-            <div class="impact-alert hidden">
-                <div class="impact-header">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+            <div class="social-login">
+                <button class="social-button" type="button">
+                    <svg class="social-icon" viewBox="0 0 24 24" fill="none">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                     </svg>
-                    <span class="impact-title">충격 감지</span>
-                </div>
-                <div class="impact-body">
-                    <div class="impact-detail">
-                        <span class="impact-label">충격 강도:</span>
-                        <span class="impact-value danger-value">8.5</span>
-                        <span class="impact-unit">m/s²</span>
-                    </div>
-                    <div class="impact-status">
-                        <span class="verification-badge">
-                            <span class="verification-icon">📹</span>
-                            영상 분석 중...
-                        </span>
-                    </div>
-                </div>
+                    Google
+                </button>
+                <button class="social-button" type="button">
+                    <svg class="social-icon" viewBox="0 0 24 24" fill="#03C75A">
+                        <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                    </svg>
+                    Kakao
+                </button>
+            </div>
+
+            <div class="signup-link">
+                아직 계정이 없으신가요? <a href="#">회원가입</a>
             </div>
         </div>
-
-        <div class="card3">
-            <div class="patientTitle">
-                <p class="patientTitleP">환자정보</p>
-            </div>
-            <div class="patientContent">
-                <div class="profileWrap">
-                    <div class="patientProfile">
-                    <img src="src/profile.png" alt="프로필 사진">
-                </div>
-                </div>
-                <div class="patientInfo">
-                    <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">김철수</span></p>
-                    <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">78</span>세</p>
-                    <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">정상엽</span></p>
-                    <p class="record profileValue"><span class="profileC">최근진료</span> : <span class="diagnosis">골다공증</span><span class="recordTimeline"> (1개월전)</span></p>
-                </div>
-            </div>
-        </div>
-
-        <button id="change">
-            위험 상황 UI로 전환
-        </button>
-
-        <button id="change2">
-            안전 상황 UI로 전환
-        </button>
     </div>
 
-    <!-- 하단 네비게이션 바 -->
-    <nav class="bottom-nav">
-        <button class="nav-item active">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                class="bi bi-house-door-fill" viewBox="0 0 16 16">
-                <path
-                    d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5" />
-            </svg>
-            <span class="label">홈</span>
-        </button>
-
-        <button class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-map-fill"
-                viewBox="0 0 16 16">
-                <path fill-rule="evenodd"
-                    d="M16 .5a.5.5 0 0 0-.598-.49L10.5.99 5.598.01a.5.5 0 0 0-.196 0l-5 1A.5.5 0 0 0 0 1.5v14a.5.5 0 0 0 .598.49l4.902-.98 4.902.98a.5.5 0 0 0 .196 0l5-1A.5.5 0 0 0 16 14.5zM5 14.09V1.11l.5-.1.5.1v12.98l-.402-.08a.5.5 0 0 0-.196 0zm5 .8V1.91l.402.08a.5.5 0 0 0 .196 0L11 1.91v12.98l-.5.1z" />
-            </svg>
-            <span class="label">지도</span>
-        </button>
-
-        <button class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                class="bi bi-telephone-fill" viewBox="0 0 16 16">
-                <path fill-rule="evenodd"
-                    d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z" />
-            </svg>
-            <span class="label">연락처</span>
-        </button>
-
-        <button class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-fill"
-                viewBox="0 0 16 16">
-                <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
-            </svg>
-            <span class="label">프로필</span>
-        </button>
-    </nav>
-
-    <script src="js/main.js"></script>
+    <script src="js/login.js"></script>
 </body>
-
 </html>
