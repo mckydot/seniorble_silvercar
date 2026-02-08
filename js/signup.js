@@ -210,10 +210,10 @@ async function handleSubmit(e) {
     showLoading();
     
     try {
-        // FastAPI 서버로 회원가입 요청
+        // Node.js 백엔드 서버로 회원가입 요청
         console.log('서버로 회원가입 요청 전송...');
         
-        const response = await fetch(`${API_BASE_URL}/users/register`, {
+        const response = await fetch(`${API_BASE_URL}/signup`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -234,33 +234,39 @@ async function handleSubmit(e) {
         console.log('서버 응답 데이터:', data);
         
         // 성공 응답 처리 (HTTP 201 Created)
-        if (response.ok) {
+        if (response.status === 201 && data.success) {
             console.log('회원가입 성공!');
             
             // 성공 알림
-            alert('회원가입이 완료되었습니다!\n로그인 페이지로 이동합니다.');
+            alert(`회원가입이 완료되었습니다!\n\n환영합니다, ${formData.name}님!\n로그인 페이지로 이동합니다.`);
             
             // 로그인 페이지로 이동
-            window.location.href = 'login.html';
+            window.location.href = 'seniorble-login.html';
+            
+        } else if (response.status === 409) {
+            // 이메일 중복 (409 Conflict)
+            console.warn('이메일 중복:', data.message);
+            showError(data.message || '이미 가입된 이메일입니다.');
+            
+        } else if (response.status === 400) {
+            // 잘못된 요청 (400 Bad Request)
+            console.error('입력값 오류:', data);
+            if (data.errors && data.errors.length > 0) {
+                showError(data.errors.join('\n'));
+            } else {
+                showError(data.message || '입력값이 올바르지 않습니다.');
+            }
             
         } else {
-            // 에러 응답 처리
+            // 기타 에러
             console.error('회원가입 실패:', data);
-            
-            // 서버에서 보낸 에러 메시지 표시
-            if (data.detail) {
-                showError(data.detail);
-            } else if (data.message) {
-                showError(data.message);
-            } else {
-                showError('회원가입에 실패했습니다. 다시 시도해주세요.');
-            }
+            showError(data.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
         }
         
     } catch (error) {
         // 네트워크 에러 또는 기타 예외 처리
         console.error('회원가입 요청 중 에러 발생:', error);
-        showError('서버와 통신 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+        showError('서버와 통신 중 오류가 발생했습니다.\n서버가 실행 중인지 확인해주세요.\n(http://localhost:8000)');
         
     } finally {
         // 로딩 숨김
@@ -289,9 +295,9 @@ window.addEventListener('resize', setVH);
 // 개발 참고사항
 // ==========================================
 /**
- * FastAPI 백엔드에서 받을 것으로 예상되는 요청 형식:
+ * Node.js 백엔드에서 받을 것으로 예상되는 요청/응답 형식:
  * 
- * POST /users/register
+ * POST /signup
  * Content-Type: application/json
  * 
  * Request Body:
@@ -304,15 +310,27 @@ window.addEventListener('resize', setVH);
  * 
  * 성공 응답 (201 Created):
  * {
- *   "id": 1,
- *   "name": "홍길동",
- *   "email": "hong@example.com",
- *   "phone": "010-1234-5678",
- *   "created_at": "2024-01-01T00:00:00"
+ *   "success": true,
+ *   "message": "회원가입이 완료되었습니다.",
+ *   "user": {
+ *     "id": "uuid-string",
+ *     "name": "홍길동",
+ *     "email": "hong@example.com",
+ *     "phone": "010-1234-5678",
+ *     "created_at": "2024-01-01T00:00:00Z"
+ *   }
  * }
  * 
- * 실패 응답 (400 Bad Request):
+ * 이메일 중복 (409 Conflict):
  * {
- *   "detail": "이미 등록된 이메일입니다."
+ *   "success": false,
+ *   "message": "이미 가입된 이메일입니다."
+ * }
+ * 
+ * 입력값 오류 (400 Bad Request):
+ * {
+ *   "success": false,
+ *   "message": "입력값이 올바르지 않습니다.",
+ *   "errors": ["비밀번호는 8자 이상이어야 합니다."]
  * }
  */
