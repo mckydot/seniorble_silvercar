@@ -1,0 +1,539 @@
+/* ==================== 
+   CSS 변수 정의 
+   ==================== */
+:root {
+    --primary: #2D5F5D;
+    --primary-light: #4A8583;
+    --accent: #E8B863;
+    --cream: #FAF8F3;
+    --text-dark: #1A1A1A;
+    --text-light: #6B7280;
+    --border: #E5E1D8;
+    --danger: #E63946;
+    --success: #06D6A0;
+}
+
+/* ==================== 
+   기본 설정 
+   ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, var(--cream) 0%, #F0EDE4 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow-x: hidden;
+    padding: 20px 0;
+}
+
+/* ==================== 
+   배경 장식 효과 
+   ==================== */
+body::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    right: -20%;
+    width: 100vw;
+    height: 100vw;
+    max-width: 600px;
+    max-height: 600px;
+    background: radial-gradient(circle, rgba(232, 184, 99, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: float 20s ease-in-out infinite;
+    z-index: 0;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    left: -20%;
+    width: 80vw;
+    height: 80vw;
+    max-width: 500px;
+    max-height: 500px;
+    background: radial-gradient(circle, rgba(45, 95, 93, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: float 25s ease-in-out infinite reverse;
+    z-index: 0;
+}
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-20px, -30px) scale(1.05); }
+}
+
+/* ==================== 
+   메인 컨테이너 
+   ==================== */
+.container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    padding: 16px;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== 
+   회원가입 카드 
+   ==================== */
+.signup-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 40px 28px;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.08),
+        0 0 1px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 상단 그라데이션 라인 */
+.signup-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary-light));
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* ==================== 
+   로고 영역 
+   ==================== */
+.logo {
+    text-align: center;
+    margin-bottom: 32px;
+    animation: fadeIn 1s ease-out 0.3s both;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.logo-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 38px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.logo-subtitle {
+    font-size: 11px;
+    color: var(--text-light);
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* ==================== 
+   환영 텍스트 
+   ==================== */
+.welcome-text {
+    text-align: center;
+    margin-bottom: 28px;
+    animation: fadeIn 1s ease-out 0.5s both;
+}
+
+.welcome-text h2 {
+    font-size: 22px;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.welcome-text p {
+    font-size: 13px;
+    color: var(--text-light);
+    font-weight: 300;
+}
+
+/* ==================== 
+   폼 입력 그룹 
+   ==================== */
+.form-group {
+    margin-bottom: 20px;
+    animation: fadeIn 1s ease-out 0.7s both;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+}
+
+/* 입력 필드 래퍼 */
+.input-wrapper {
+    position: relative;
+}
+
+/* 입력 필드 스타일 */
+.form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    padding-right: 45px; /* 아이콘 공간 확보 */
+    font-size: 15px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--cream);
+    color: var(--text-dark);
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+/* 입력 필드 포커스 상태 */
+.form-group input:focus {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 4px 12px rgba(45, 95, 93, 0.1);
+    transform: translateY(-1px);
+}
+
+/* 플레이스홀더 스타일 */
+.form-group input::placeholder {
+    color: #B0ACA0;
+    font-weight: 300;
+}
+
+/* 입력 필드 아이콘 */
+.input-icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    font-size: 16px;
+    pointer-events: none;
+    transition: color 0.3s ease;
+}
+
+.form-group input:focus + .input-icon {
+    color: var(--primary);
+}
+
+/* 도움말 텍스트 */
+.input-help {
+    display: block;
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 6px;
+    margin-left: 4px;
+}
+
+/* 비밀번호 일치 메시지 - 성공 */
+.input-help.success {
+    color: var(--success);
+}
+
+/* 비밀번호 일치 메시지 - 에러 */
+.input-help.error {
+    color: var(--danger);
+}
+
+/* ==================== 
+   약관 동의 영역 
+   ==================== */
+.terms-group {
+    margin-bottom: 24px;
+    animation: fadeIn 1s ease-out 0.9s both;
+}
+
+.terms-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--cream);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.terms-item:hover {
+    background: white;
+}
+
+.terms-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+
+.terms-item label {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-dark);
+    cursor: pointer;
+    margin: 0;
+}
+
+/* ==================== 
+   에러 메시지 
+   ==================== */
+.error-message {
+    padding: 12px 16px;
+    background: rgba(230, 57, 70, 0.1);
+    border: 2px solid var(--danger);
+    border-radius: 10px;
+    color: var(--danger);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.error-message.hidden {
+    display: none;
+}
+
+/* ==================== 
+   회원가입 버튼 
+   ==================== */
+.signup-button {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    box-shadow: 0 4px 16px rgba(45, 95, 93, 0.25);
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 1s ease-out 1.1s both;
+}
+
+.signup-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.signup-button:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 8px rgba(45, 95, 93, 0.2);
+}
+
+.signup-button:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* 비활성화 상태 */
+.signup-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==================== 
+   로그인 링크 
+   ==================== */
+.login-link {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 24px;
+    animation: fadeIn 1s ease-out 1.3s both;
+}
+
+.login-link a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.login-link a:active {
+    opacity: 0.7;
+}
+
+/* ==================== 
+   로딩 오버레이 
+   ==================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.loading-overlay.hidden {
+    display: none;
+}
+
+.loading-overlay p {
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 16px;
+}
+
+/* 로딩 스피너 */
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==================== 
+   모바일 반응형 (480px 이하) 
+   ==================== */
+@media (max-width: 480px) {
+    body {
+        padding: 12px 0;
+    }
+
+    .container {
+        padding: 12px;
+    }
+
+    .signup-card {
+        padding: 32px 24px;
+        border-radius: 20px;
+    }
+
+    .logo-text {
+        font-size: 34px;
+    }
+
+    .welcome-text h2 {
+        font-size: 20px;
+    }
+
+    .form-group input {
+        padding: 13px 14px;
+        padding-right: 42px;
+        font-size: 14px;
+    }
+}
+
+/* ==================== 
+   초소형 화면 (360px 이하) 
+   ==================== */
+@media (max-width: 360px) {
+    .signup-card {
+        padding: 28px 20px;
+    }
+
+    .logo-text {
+        font-size: 30px;
+    }
+
+    .welcome-text h2 {
+        font-size: 18px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+}
+
+/* ==================== 
+   작은 세로 화면 최적화 
+   ==================== */
+@media (max-height: 700px) and (max-width: 480px) {
+    body {
+        padding: 8px 0;
+    }
+
+    .container {
+        padding: 8px;
+    }
+
+    .signup-card {
+        padding: 24px 20px;
+    }
+
+    .logo {
+        margin-bottom: 20px;
+    }
+
+    .welcome-text {
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .terms-group {
+        margin-bottom: 20px;
+    }
+}
