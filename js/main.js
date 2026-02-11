@@ -155,3 +155,8 @@ window.addEventListener('DOMContentLoaded', function() {
     // 충격 감지 알림은 기본적으로 숨김
     document.querySelector('.impact-alert')?.classList.add('hidden');
 });
+
+//네이게이션 함수
+function goToProfile() {
+    window.location.href = 'profile.html';
+}

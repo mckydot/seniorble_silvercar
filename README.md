@@ -1,5 +1,3 @@
-시니어랑 노인보행보조기구 IOT 웹 서비스 프로토타입 제작
-
 # Seniorble 백엔드 서버 설치 및 실행 가이드
 
 ## 📁 프로젝트 폴더 구조
@@ -129,6 +127,16 @@ curl -X POST http://localhost:8000/signup \
   }'
 ```
 
+**로그인 테스트:**
+```bash
+curl -X POST http://localhost:8000/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@test.com",
+    "password": "12345678"
+  }'
+```
+
 ## 📡 API 엔드포인트
 
 ### GET /
@@ -173,6 +181,40 @@ curl -X POST http://localhost:8000/signup \
 }
 ```
 
+### POST /login
+로그인
+
+**요청 예시:**
+```json
+{
+  "email": "test@test.com",
+  "password": "12345678"
+}
+```
+
+**응답 예시 (성공 - 200):**
+```json
+{
+  "success": true,
+  "message": "로그인에 성공했습니다.",
+  "user": {
+    "id": "uuid-string",
+    "email": "test@test.com",
+    "name": "홍길동",
+    "phone": "010-1234-5678",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**응답 예시 (인증 실패 - 401):**
+```json
+{
+  "success": false,
+  "message": "이메일 또는 비밀번호가 올바르지 않습니다."
+}
+```
+
 ## 🔒 보안 체크리스트
 
 ✅ 비밀번호 bcrypt 해싱 (saltRounds=10)
@@ -212,7 +254,8 @@ const API_BASE_URL = 'http://localhost:8000';
 ## 🎯 다음 단계
 
 이제 다음 기능들을 추가할 수 있습니다:
-- [ ] 로그인 API (POST /login)
+- [x] 회원가입 API (POST /signup)
+- [x] 로그인 API (POST /login)
 - [ ] JWT 토큰 인증
 - [ ] 환자 등록 API (POST /patients)
 - [ ] 센서 데이터 수신 API
@@ -220,4 +263,4 @@ const API_BASE_URL = 'http://localhost:8000';
 
 ---
 
-Made with MCKY for Seniorble
+Made with ❤️ for Seniorble

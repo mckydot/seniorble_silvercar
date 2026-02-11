@@ -196,6 +196,94 @@ app.post('/signup',
 );
 
 // ==========================================
+// 로그인 엔드포인트
+// ==========================================
+app.post('/login',
+    // 입력값 검증 미들웨어
+    [
+        body('email')
+            .isEmail()
+            .withMessage('올바른 이메일 형식이 아닙니다.')
+            .normalizeEmail(),
+        body('password')
+            .notEmpty()
+            .withMessage('비밀번호를 입력해주세요.')
+    ],
+    async (req, res) => {
+        try {
+            // 입력값 검증 결과 확인
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                console.log('❌ 입력값 검증 실패:', errors.array());
+                return res.status(400).json({
+                    success: false,
+                    message: '입력값이 올바르지 않습니다.',
+                    errors: errors.array().map(err => err.msg)
+                });
+            }
+
+            const { email, password } = req.body;
+
+            console.log(`🔐 로그인 시도: ${email}`);
+
+            // ==========================================
+            // 1. 이메일로 사용자 조회
+            // ==========================================
+            const { data: user, error: fetchError } = await supabase
+                .from('users')
+                .select('id, email, password_hash, name, phone, created_at')
+                .eq('email', email)
+                .single();
+
+            if (fetchError || !user) {
+                console.log('⚠️ 존재하지 않는 이메일:', email);
+                return res.status(401).json({
+                    success: false,
+                    message: '이메일 또는 비밀번호가 올바르지 않습니다.'
+                });
+            }
+
+            // ==========================================
+            // 2. 비밀번호 검증
+            // ==========================================
+            const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+            if (!isPasswordValid) {
+                console.log('⚠️ 비밀번호 불일치:', email);
+                return res.status(401).json({
+                    success: false,
+                    message: '이메일 또는 비밀번호가 올바르지 않습니다.'
+                });
+            }
+
+            console.log('✅ 로그인 성공:', user.id);
+
+            // ==========================================
+            // 3. 성공 응답 (비밀번호 해시는 제외)
+            // ==========================================
+            res.status(200).json({
+                success: true,
+                message: '로그인에 성공했습니다.',
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    phone: user.phone,
+                    created_at: user.created_at
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ 로그인 처리 중 예외 발생:', error);
+            res.status(500).json({
+                success: false,
+                message: '서버 내부 오류가 발생했습니다.'
+            });
+        }
+    }
+);
+
+// ==========================================
 // 404 에러 핸들러
 // ==========================================
 app.use((req, res) => {
@@ -234,6 +322,7 @@ app.listen(PORT, () => {
     console.log('  GET  /         - 서버 상태 확인');
     console.log('  GET  /health   - 헬스체크');
     console.log('  POST /signup   - 회원가입');
+    console.log('  POST /login    - 로그인');
     console.log('');
 });
 
