@@ -50,7 +50,7 @@ function checkAuthentication() {
     if (!userString || !token) {
         console.log('로그인 정보 없음 - 로그인 페이지로 이동');
         alert('로그인이 필요한 서비스입니다.');
-        window.location.href = 'seniorble-login.html';
+        window.location.href = 'login.html';
         return;
     }
     
@@ -255,7 +255,7 @@ function handleLogout() {
         
         // 로그인 페이지로 이동
         alert('로그아웃되었습니다.');
-        window.location.href = 'seniorble-login.html';
+        window.location.href = 'login.html';
     }
 }
 
