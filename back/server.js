@@ -1,13 +1,13 @@
 /**
  * ==========================================
- * Seniorble 백엔드 서버
+ * Seniorble 백엔드 서버 (JWT 인증 시스템)
  * ==========================================
  * 
  * 기능:
- * - 보호자 회원가입 (POST /signup)
- * - Supabase(PostgreSQL) 연동
- * - bcrypt 비밀번호 해싱
- * - 이메일 중복 체크
+ * - JWT 기반 인증/인가
+ * - 보호자 회원가입/로그인
+ * - 인증된 사용자만 API 접근 가능
+ * - Role 기반 권한 제어
  */
 
 // ==========================================
@@ -16,9 +16,15 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const { body, validationResult } = require('express-validator');
 const { createClient } = require('@supabase/supabase-js');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('./utils/jwt');
+const { authenticateToken, requireRole, optionalAuth } = require('./middleware/auth');
 
 // 환경변수 로드
 dotenv.config();
@@ -34,19 +40,76 @@ if (!supabaseUrl || !supabaseServiceKey) {
     process.exit(1);
 }
 
+if (!process.env.JWT_SECRET) {
+    console.error('❌ 환경변수 오류: JWT_SECRET을 .env 파일에 설정해주세요.');
+    process.exit(1);
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+    console.error('❌ 환경변수 오류: JWT_REFRESH_SECRET을 .env 파일에 설정해주세요.');
+    process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 console.log('✅ Supabase 연결 성공');
+console.log('✅ JWT 인증 시스템 활성화');
 
 // ==========================================
 // Express 앱 설정
 // ==========================================
 const app = express();
 const PORT = process.env.PORT || 8000;
+const IS_PROD = (process.env.NODE_ENV || 'development') === 'production';
 
-// 미들웨어
-app.use(cors()); // CORS 허용 (프론트엔드에서 접근 가능)
-app.use(express.json()); // JSON 요청 파싱
-app.use(express.urlencoded({ extended: true })); // URL-encoded 요청 파싱
+const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'seniorble_refresh';
+const BCRYPT_SALT_ROUNDS = (() => {
+    const n = Number(process.env.BCRYPT_SALT_ROUNDS || 12);
+    return Number.isInteger(n) && n >= 10 && n <= 14 ? n : 12;
+})();
+
+function hashToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function refreshCookieOptions() {
+    // In production: set FRONTEND_URL to https origin and use secure cookies.
+    return {
+        httpOnly: true,
+        secure: IS_PROD,
+        sameSite: IS_PROD ? 'strict' : 'lax',
+        path: '/auth/refresh',
+        // maxAge is managed by JWT expiry; keep cookie reasonably long
+        maxAge: 1000 * 60 * 60 * 24 * 30, // 30d
+    };
+}
+
+// CORS 설정 (프론트엔드만 허용)
+// localhost와 127.0.0.1은 브라우저에서 서로 다른 origin으로 취급됨 → 둘 다 허용
+const allowedOrigins = [
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+];
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+}
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.use(helmet({
+    // You can tune CSP later; keep defaults for now.
+}));
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 요청 로깅 미들웨어
 app.use((req, res, next) => {
@@ -54,13 +117,45 @@ app.use((req, res, next) => {
     next();
 });
 
+// Basic abuse protection
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+});
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+});
+
+function asyncHandler(fn) {
+    return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+}
+
+function passwordMeetsPolicy(password) {
+    if (typeof password !== 'string') return false;
+    if (password.length < 12) return false;
+    if (password.length > 72) return false; // bcrypt input limit safety
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    return hasLower && hasUpper && hasDigit && hasSpecial;
+}
+
 // ==========================================
-// 헬스체크 엔드포인트
+// 공개 엔드포인트 (인증 불필요)
 // ==========================================
+
 app.get('/', (req, res) => {
     res.json({
         status: 'ok',
-        message: 'Seniorble 백엔드 서버가 정상 작동 중입니다.',
+        message: 'Seniorble 백엔드 서버 (JWT 인증)',
         timestamp: new Date().toISOString()
     });
 });
@@ -69,37 +164,28 @@ app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
         database: 'connected',
+        auth: 'JWT',
         timestamp: new Date().toISOString()
     });
 });
 
 // ==========================================
-// 회원가입 엔드포인트
+// 회원가입 (공개)
 // ==========================================
 app.post('/signup',
-    // 입력값 검증 미들웨어
+    authLimiter,
     [
-        body('email')
-            .isEmail()
-            .withMessage('올바른 이메일 형식이 아닙니다.')
-            .normalizeEmail(),
+        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
         body('password')
-            .isLength({ min: 8 })
-            .withMessage('비밀번호는 8자 이상이어야 합니다.'),
-        body('name')
-            .trim()
-            .isLength({ min: 2 })
-            .withMessage('이름은 2자 이상이어야 합니다.'),
-        body('phone')
-            .matches(/^010-\d{4}-\d{4}$/)
-            .withMessage('올바른 전화번호 형식이 아닙니다. (010-XXXX-XXXX)')
+            .isString()
+            .custom((pw) => passwordMeetsPolicy(pw))
+            .withMessage('비밀번호는 12~72자이며 대문자/소문자/숫자/특수문자를 각각 1개 이상 포함해야 합니다.'),
+        body('name').trim().isLength({ min: 2, max: 50 }).withMessage('이름은 2~50자여야 합니다.').escape(),
+        body('phone').matches(/^010-\d{4}-\d{4}$/).withMessage('올바른 전화번호 형식이 아닙니다.')
     ],
-    async (req, res) => {
-        try {
-            // 입력값 검증 결과 확인
+    asyncHandler(async (req, res) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                console.log('❌ 입력값 검증 실패:', errors.array());
                 return res.status(400).json({
                     success: false,
                     message: '입력값이 올바르지 않습니다.',
@@ -108,12 +194,9 @@ app.post('/signup',
             }
 
             const { email, password, name, phone } = req.body;
+            console.log(`📝 회원가입 시도`);
 
-            console.log(`📝 회원가입 시도: ${email}`);
-
-            // ==========================================
-            // 1. 이메일 중복 체크
-            // ==========================================
+            // 이메일 중복 체크
             const { data: existingUser, error: checkError } = await supabase
                 .from('users')
                 .select('id')
@@ -121,7 +204,6 @@ app.post('/signup',
                 .single();
 
             if (checkError && checkError.code !== 'PGRST116') {
-                // PGRST116은 "데이터 없음" 에러 (정상)
                 console.error('❌ 이메일 중복 체크 중 에러:', checkError);
                 return res.status(500).json({
                     success: false,
@@ -130,49 +212,45 @@ app.post('/signup',
             }
 
             if (existingUser) {
-                console.log('⚠️ 이메일 중복:', email);
+                console.log('⚠️ 회원가입 거절(중복 가능)');
                 return res.status(409).json({
                     success: false,
-                    message: '이미 가입된 이메일입니다.'
+                    message: '회원가입에 실패했습니다.'
                 });
             }
 
-            // ==========================================
-            // 2. 비밀번호 해싱
-            // ==========================================
-            const saltRounds = 10;
-            const passwordHash = await bcrypt.hash(password, saltRounds);
+            // 비밀번호 해싱
+            const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
             console.log('🔒 비밀번호 해싱 완료');
 
-            // ==========================================
-            // 3. 사용자 정보 DB에 저장
-            // ==========================================
+            // 사용자 생성
             const { data: newUser, error: insertError } = await supabase
                 .from('users')
-                .insert([
-                    {
-                        email: email,
-                        password_hash: passwordHash,
-                        name: name,
-                        phone: phone
-                    }
-                ])
+                .insert([{
+                    email,
+                    password_hash: passwordHash,
+                    name,
+                    phone
+                }])
                 .select()
                 .single();
 
             if (insertError) {
                 console.error('❌ 사용자 생성 중 에러:', insertError);
+                if (insertError.code === '23505') {
+                    return res.status(409).json({
+                        success: false,
+                        message: '이미 가입된 이메일입니다.'
+                    });
+                }
                 return res.status(500).json({
                     success: false,
-                    message: '회원가입 처리 중 오류가 발생했습니다.'
+                    message: '회원가입 처리 중 오류가 발생했습니다. 입력값을 확인하거나 잠시 후 다시 시도해주세요.'
                 });
             }
 
             console.log('✅ 회원가입 성공:', newUser.id);
 
-            // ==========================================
-            // 4. 성공 응답 (비밀번호 해시는 제외)
-            // ==========================================
             res.status(201).json({
                 success: true,
                 message: '회원가입이 완료되었습니다.',
@@ -181,40 +259,26 @@ app.post('/signup',
                     email: newUser.email,
                     name: newUser.name,
                     phone: newUser.phone,
+                    role: 'guardian',
                     created_at: newUser.created_at
                 }
             });
 
-        } catch (error) {
-            console.error('❌ 회원가입 처리 중 예외 발생:', error);
-            res.status(500).json({
-                success: false,
-                message: '서버 내부 오류가 발생했습니다.'
-            });
-        }
-    }
+    })
 );
 
 // ==========================================
-// 로그인 엔드포인트
+// 로그인 (공개) - JWT 토큰 발급
 // ==========================================
 app.post('/login',
-    // 입력값 검증 미들웨어
+    loginLimiter,
     [
-        body('email')
-            .isEmail()
-            .withMessage('올바른 이메일 형식이 아닙니다.')
-            .normalizeEmail(),
-        body('password')
-            .notEmpty()
-            .withMessage('비밀번호를 입력해주세요.')
+        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
+        body('password').isString().notEmpty().withMessage('비밀번호를 입력해주세요.')
     ],
-    async (req, res) => {
-        try {
-            // 입력값 검증 결과 확인
+    asyncHandler(async (req, res) => {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                console.log('❌ 입력값 검증 실패:', errors.array());
                 return res.status(400).json({
                     success: false,
                     message: '입력값이 올바르지 않습니다.',
@@ -223,65 +287,272 @@ app.post('/login',
             }
 
             const { email, password } = req.body;
+            console.log(`🔐 로그인 시도`);
 
-            console.log(`🔐 로그인 시도: ${email}`);
-
-            // ==========================================
-            // 1. 이메일로 사용자 조회
-            // ==========================================
+            // 사용자 조회
             const { data: user, error: fetchError } = await supabase
                 .from('users')
                 .select('id, email, password_hash, name, phone, created_at')
                 .eq('email', email)
                 .single();
 
+            // Prevent user enumeration: same message for "no such user" vs "wrong password"
             if (fetchError || !user) {
-                console.log('⚠️ 존재하지 않는 이메일:', email);
+                console.log('⚠️ 로그인 실패(사용자 없음 또는 조회 오류)');
                 return res.status(401).json({
                     success: false,
                     message: '이메일 또는 비밀번호가 올바르지 않습니다.'
                 });
             }
 
-            // ==========================================
-            // 2. 비밀번호 검증
-            // ==========================================
+            // 비밀번호 검증
             const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
             if (!isPasswordValid) {
-                console.log('⚠️ 비밀번호 불일치:', email);
+                console.log('⚠️ 로그인 실패(비밀번호 불일치)');
                 return res.status(401).json({
                     success: false,
                     message: '이메일 또는 비밀번호가 올바르지 않습니다.'
                 });
             }
 
-            console.log('✅ 로그인 성공:', user.id);
+            // Access + Refresh token 발급
+            const accessToken = generateAccessToken({
+                userId: user.id,
+                email: user.email,
+                role: 'guardian'
+            });
 
-            // ==========================================
-            // 3. 성공 응답 (비밀번호 해시는 제외)
-            // ==========================================
+            const refreshToken = generateRefreshToken({ userId: user.id });
+            const refreshTokenHash = hashToken(refreshToken);
+
+            // Refresh token 서버측 저장 (해시만 저장)
+            const { error: rtError } = await supabase
+                .from('refresh_tokens')
+                .insert([{
+                    user_id: user.id,
+                    token_hash: refreshTokenHash,
+                    revoked: false,
+                    // Expires is enforced by JWT verify as well; store for server-side invalidation/cleanup
+                    expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+                    user_agent: req.headers['user-agent'] || null,
+                    ip: req.ip || null,
+                }]);
+
+            if (rtError) {
+                console.error('❌ refresh token 저장 실패:', rtError);
+                return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+            }
+
+            res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
+
+            console.log('✅ 로그인 성공:', user.id, '- Access/Refresh 발급');
+
             res.status(200).json({
                 success: true,
                 message: '로그인에 성공했습니다.',
+                accessToken,
                 user: {
                     id: user.id,
                     email: user.email,
                     name: user.name,
                     phone: user.phone,
+                    role: 'guardian',
                     created_at: user.created_at
                 }
             });
 
-        } catch (error) {
-            console.error('❌ 로그인 처리 중 예외 발생:', error);
-            res.status(500).json({
-                success: false,
-                message: '서버 내부 오류가 발생했습니다.'
-            });
-        }
-    }
+    })
 );
+
+/**
+ * Access token 재발급 (Refresh token 기반)
+ * - Refresh token은 httpOnly cookie로만 받음
+ * - DB 해시 저장된 refresh token만 유효
+ * - Refresh token rotation (기존 토큰 즉시 revoke)
+ */
+app.post('/auth/refresh', asyncHandler(async (req, res) => {
+    const token = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (!token) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+    }
+
+    let decoded;
+    try {
+        decoded = verifyRefreshToken(token);
+        if (decoded.typ !== 'refresh') throw new Error('invalid refresh typ');
+    } catch (_) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+    }
+
+    const tokenHash = hashToken(token);
+
+    const { data: row, error } = await supabase
+        .from('refresh_tokens')
+        .select('id, user_id, revoked, expires_at')
+        .eq('token_hash', tokenHash)
+        .single();
+
+    if (error || !row || row.revoked) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+    }
+
+    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+        // revoke expired token record
+        await supabase.from('refresh_tokens').update({ revoked: true }).eq('id', row.id);
+        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+    }
+
+    // rotation: revoke old, issue new
+    const newRefreshToken = generateRefreshToken({ userId: row.user_id });
+    const newRefreshTokenHash = hashToken(newRefreshToken);
+
+    const { error: revokeErr } = await supabase
+        .from('refresh_tokens')
+        .update({ revoked: true, last_used_at: new Date().toISOString() })
+        .eq('id', row.id);
+
+    if (revokeErr) {
+        console.error('❌ refresh token revoke 실패:', revokeErr);
+        return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+    }
+
+    const { error: insertErr } = await supabase
+        .from('refresh_tokens')
+        .insert([{
+            user_id: row.user_id,
+            token_hash: newRefreshTokenHash,
+            revoked: false,
+            expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+            user_agent: req.headers['user-agent'] || null,
+            ip: req.ip || null,
+        }]);
+
+    if (insertErr) {
+        console.error('❌ refresh token rotation insert 실패:', insertErr);
+        return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+    }
+
+    // access token is short-lived, fetch role/email for payload safely
+    const { data: user, error: userErr } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('id', row.user_id)
+        .single();
+
+    if (userErr || !user) {
+        return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+    }
+
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, role: 'guardian' });
+
+    res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, refreshCookieOptions());
+    return res.status(200).json({ success: true, accessToken });
+}));
+
+/**
+ * 로그아웃: 현재 refresh token 무효화 + 쿠키 삭제
+ */
+app.post('/logout', asyncHandler(async (req, res) => {
+    const token = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (token) {
+        const tokenHash = hashToken(token);
+        await supabase.from('refresh_tokens').update({ revoked: true }).eq('token_hash', tokenHash);
+    }
+    res.clearCookie(REFRESH_COOKIE_NAME, { ...refreshCookieOptions(), maxAge: 0 });
+    return res.status(200).json({ success: true, message: '로그아웃되었습니다.' });
+}));
+
+// ==========================================
+// 보호된 엔드포인트 (인증 필요)
+// ==========================================
+
+/**
+ * 현재 로그인한 사용자 정보 조회
+ * 프론트엔드가 페이지 로드 시 호출하여 로그인 여부 확인
+ */
+app.get('/auth/me', authenticateToken, async (req, res) => {
+    try {
+        res.status(200).json({
+            success: true,
+            user: req.user
+        });
+    } catch (error) {
+        console.error('❌ 사용자 정보 조회 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
+/**
+ * 환자 목록 조회 (Guardian만)
+ */
+app.get('/patients', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const { data: patients, error } = await supabase
+            .from('patients')
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, guardian_id, created_at')
+            .eq('guardian_id', req.user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('❌ 환자 목록 조회 DB 오류:', error);
+            return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+        }
+
+        res.status(200).json({ success: true, patients: patients || [] });
+    } catch (error) {
+        console.error('❌ 환자 목록 조회 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
+/**
+ * 환자 등록 (Guardian만)
+ */
+app.post('/patients', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        // minimal server-side validation (keep using express-validator later if you add more fields)
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+        if (name.length < 2 || name.length > 50) {
+            return res.status(400).json({ success: false, message: '입력값이 올바르지 않습니다.' });
+        }
+
+        const payload = {
+            name,
+            birthdate: req.body.birthdate || null,
+            gender: req.body.gender || null,
+            device_serial_number: req.body.device_serial_number || null,
+            notes: req.body.notes || null,
+            relationship: req.body.relationship || null,
+            guardian_id: req.user.id,
+        };
+
+        const { data: patient, error } = await supabase
+            .from('patients')
+            .insert([payload])
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, guardian_id, created_at')
+            .single();
+
+        if (error) {
+            console.error('❌ 환자 등록 DB 오류:', error);
+            return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+        }
+
+        res.status(201).json({ success: true, patient });
+    } catch (error) {
+        console.error('❌ 환자 등록 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
 
 // ==========================================
 // 404 에러 핸들러
@@ -294,14 +565,15 @@ app.use((req, res) => {
 });
 
 // ==========================================
-// 전역 에러 핸들러
+// 전역 에러 핸들러 (내부 정보 노출 방지)
 // ==========================================
 app.use((err, req, res, next) => {
+    // eslint-disable-line no-unused-vars
     console.error('❌ 전역 에러:', err);
-    res.status(500).json({
+    const status = Number.isInteger(err.status) ? err.status : 500;
+    res.status(status).json({
         success: false,
-        message: '서버 오류가 발생했습니다.',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: status >= 500 ? '서버 오류가 발생했습니다.' : (err.publicMessage || '요청 처리에 실패했습니다.')
     });
 });
 
@@ -316,18 +588,26 @@ app.listen(PORT, () => {
     console.log(`📡 서버 주소: http://localhost:${PORT}`);
     console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🗄️  데이터베이스: Supabase (PostgreSQL)`);
+    console.log(`🔐 인증 방식: JWT`);
+    console.log(`⏱️  토큰 만료: ${process.env.JWT_EXPIRES_IN || '1h'}`);
     console.log('════════════════════════════════════════');
     console.log('');
     console.log('사용 가능한 엔드포인트:');
+    console.log('  [공개]');
     console.log('  GET  /         - 서버 상태 확인');
     console.log('  GET  /health   - 헬스체크');
     console.log('  POST /signup   - 회원가입');
-    console.log('  POST /login    - 로그인');
+    console.log('  POST /login    - 로그인 (JWT 발급)');
+    console.log('');
+    console.log('  [인증 필요]');
+    console.log('  GET  /auth/me  - 현재 사용자 정보');
+    console.log('  GET  /patients - 환자 목록 (Guardian)');
+    console.log('  POST /patients - 환자 등록 (Guardian)');
     console.log('');
 });
 
 // ==========================================
-// 우아한 종료 (Graceful Shutdown)
+// 우아한 종료
 // ==========================================
 process.on('SIGTERM', () => {
     console.log('');

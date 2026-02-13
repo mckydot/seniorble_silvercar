@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ==========================================
 function checkAuthentication() {
     const userString = localStorage.getItem(USER_KEY);
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
     
     if (!userString || !token) {
         console.log('로그인 정보 없음 - 로그인 페이지로 이동');
@@ -248,10 +248,13 @@ function goToPatientDetail(patientId) {
 function handleLogout() {
     if (confirm('로그아웃 하시겠습니까?')) {
         console.log('로그아웃 처리');
+
+        // 서버 refresh token revoke + 쿠키 삭제
+        fetch(`${API_BASE_URL}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
         
         // 로컬 스토리지에서 사용자 정보 삭제
         localStorage.removeItem(USER_KEY);
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         
         // 로그인 페이지로 이동
         alert('로그아웃되었습니다.');

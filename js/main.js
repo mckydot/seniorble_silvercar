@@ -1,4 +1,100 @@
-// 위험 상황 UI 토글 기능 - 보행보조기구 낙상 감지 시스템
+/**
+ * ==========================================
+ * Seniorble 메인 페이지 JavaScript
+ * ==========================================
+ * 
+ * 주요 기능:
+ * 1. 로그인 확인
+ * 2. 보호자 정보 표시
+ * 3. 위험/안전 상황 UI 전환
+ * 4. 긴급 호출
+ */
+
+// ==========================================
+// 전역 변수 및 설정
+// ==========================================
+
+// 로컬 스토리지 키
+const USER_KEY = 'seniorble_user';
+const TOKEN_KEY = 'seniorble_token'; // sessionStorage에 저장됨
+
+// 현재 로그인한 사용자 정보
+let currentUser = null;
+
+// ==========================================
+// 페이지 로드 시 초기화
+// ==========================================
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('Seniorble 메인 페이지 로드 완료');
+    
+    // 로그인 확인
+    checkAuthentication();
+    
+    // 사용자 정보 표시
+    loadUserInfo();
+    
+    // 충격 감지 알림은 기본적으로 숨김
+    document.querySelector('.impact-alert')?.classList.add('hidden');
+    
+    // 하단 네비게이션 이벤트 등록
+    setupBottomNavigation();
+    
+    console.log('Seniorble 보행보조기구 모니터링 시스템 초기화 완료');
+});
+
+// ==========================================
+// 로그인 확인
+// ==========================================
+function checkAuthentication() {
+    const userString = localStorage.getItem(USER_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    
+    if (!userString || !token) {
+        console.log('로그인 정보 없음 - 로그인 페이지로 이동');
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    try {
+        currentUser = JSON.parse(userString);
+        console.log('현재 로그인 사용자:', currentUser);
+    } catch (error) {
+        console.error('사용자 정보 파싱 오류:', error);
+        alert('로그인 정보가 올바르지 않습니다. 다시 로그인해주세요.');
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.href = 'login.html';
+    }
+}
+
+// ==========================================
+// 사용자 정보 표시
+// ==========================================
+function loadUserInfo() {
+    if (!currentUser) {
+        console.error('사용자 정보 없음');
+        return;
+    }
+    
+    // 주 보호자 이름 표시
+    const guardianNameElement = document.querySelector('.guardian_name span');
+    if (guardianNameElement) {
+        guardianNameElement.textContent = currentUser.name;
+    }
+    
+    // 환자 정보의 주보호자 표시
+    const patientGuardianElement = document.querySelector('.guardianValue');
+    if (patientGuardianElement) {
+        patientGuardianElement.textContent = currentUser.name;
+    }
+    
+    console.log('사용자 정보 표시 완료:', currentUser.name);
+}
+
+// ==========================================
+// 위험 상황 UI 토글 기능
+// ==========================================
 
 // 위험 상황으로 전환 (낙상 감지)
 document.getElementById('change')?.addEventListener('click', function() {
@@ -140,23 +236,62 @@ function activateSafeMode() {
     console.log('안전 상황 UI 활성화 - 정상 상태');
 }
 
-// 긴급 호출 버튼 클릭 이벤트
+// ==========================================
+// 긴급 호출 기능
+// ==========================================
 document.querySelector('.emergency-btn')?.addEventListener('click', function() {
-    if (confirm('보호자에게 긴급 호출을 발송하시겠습니까?')) {
-        alert('긴급 호출이 발송되었습니다.\n보호자: 정상엽\n현재 위치가 전송되었습니다.');
-        // 실제 앱에서는 여기서 긴급 호출 API를 호출
+    const guardianName = currentUser ? currentUser.name : '보호자';
+    
+    if (confirm(`${guardianName}님에게 긴급 호출을 발송하시겠습니까?`)) {
+        alert(`긴급 호출이 발송되었습니다.\n보호자: ${guardianName}\n현재 위치가 전송되었습니다.`);
+        // TODO: 실제 앱에서는 여기서 긴급 호출 API를 호출
+        console.log('긴급 호출 발송:', guardianName);
     }
 });
 
-// 페이지 로드 시 초기 설정 (안전 모드)
-window.addEventListener('DOMContentLoaded', function() {
-    console.log('Seniorble 보행보조기구 모니터링 시스템 초기화 완료');
+// ==========================================
+// 하단 네비게이션 설정
+// ==========================================
+function setupBottomNavigation() {
+    const navItems = document.querySelectorAll('.bottom-nav .nav-item');
     
-    // 충격 감지 알림은 기본적으로 숨김
-    document.querySelector('.impact-alert')?.classList.add('hidden');
-});
+    navItems.forEach((item, index) => {
+        item.addEventListener('click', function() {
+            // 각 메뉴별 동작
+            switch(index) {
+                case 0: // 홈
+                    // 이미 홈 페이지 - 페이지 새로고침
+                    window.location.reload();
+                    break;
+                case 1: // 지도
+                    goToMap();
+                    break;
+                case 2: // 연락처
+                    goToContacts();
+                    break;
+                case 3: // 프로필
+                    goToProfile();
+                    break;
+            }
+        });
+    });
+}
 
-//네이게이션 함수
+// ==========================================
+// 네비게이션 함수
+// ==========================================
 function goToProfile() {
     window.location.href = 'profile.html';
+}
+
+function goToMap() {
+    console.log('지도 페이지로 이동');
+    // TODO: 지도 페이지 구현
+    alert('지도 페이지는 준비 중입니다.');
+}
+
+function goToContacts() {
+    console.log('연락처 페이지로 이동');
+    // TODO: 연락처 페이지 구현
+    alert('연락처 페이지는 준비 중입니다.');
 }

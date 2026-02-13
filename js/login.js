@@ -14,7 +14,7 @@
 // 전역 변수 및 설정
 // ==========================================
 
-// API 서버 주소
+// API 서버 주소 (127.0.0.1에서 열어도 서버는 localhost:8000 사용, CORS 서버에서 허용)
 const API_BASE_URL = 'http://localhost:8000';
 
 // 로컬 스토리지 키
@@ -203,6 +203,7 @@ async function handleSubmit(e) {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include', // refresh cookie 수신
             body: JSON.stringify({
                 email: formData.email,
                 password: formData.password
@@ -222,9 +223,11 @@ async function handleSubmit(e) {
             // 사용자 정보 저장
             localStorage.setItem(USER_KEY, JSON.stringify(data.user));
             
-            // 간단한 토큰 생성 (실제로는 서버에서 JWT를 받아야 함)
-            const simpleToken = btoa(`${data.user.id}:${Date.now()}`);
-            localStorage.setItem(TOKEN_KEY, simpleToken);
+            // 서버에서 발급한 Access Token 저장 (Refresh Token은 httpOnly cookie)
+            if (data.accessToken) {
+                // XSS 노출 면에서 localStorage보다 sessionStorage 권장
+                sessionStorage.setItem(TOKEN_KEY, data.accessToken);
+            }
             
             // 이메일 저장 (로그인 상태 유지 체크 시)
             if (rememberMeCheckbox.checked) {

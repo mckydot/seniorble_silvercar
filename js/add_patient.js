@@ -38,8 +38,8 @@ let otherRelationshipGroup;
 let otherRelationshipInput;
 
 // 로컬 스토리지 키
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'user_info';
+const TOKEN_KEY = 'seniorble_token';
+const USER_KEY = 'seniorble_user';
 
 // ==========================================
 // 페이지 로드 시 초기화
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ==========================================
 function checkAuthentication() {
     // 로컬 스토리지에서 토큰 확인
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = sessionStorage.getItem(TOKEN_KEY);
     
     if (!token) {
         // 토큰이 없으면 로그인 페이지로 리다이렉트
@@ -441,7 +441,7 @@ async function handleSubmit(e) {
     
     try {
         // 로컬 스토리지에서 인증 토큰 가져오기
-        const token = localStorage.getItem(TOKEN_KEY);
+        const token = sessionStorage.getItem(TOKEN_KEY);
         
         console.log('서버로 환자 등록 요청 전송...');
         
@@ -504,7 +504,7 @@ async function handleSubmit(e) {
         // 인증 에러인 경우 로그인 페이지로 이동
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {
             alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
-            localStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem(USER_KEY);
             window.location.href = 'login.html';
             return;

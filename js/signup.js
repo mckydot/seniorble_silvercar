@@ -16,7 +16,15 @@
 // ==========================================
 
 // API 서버 주소 (실제 배포 시 환경에 맞게 변경)
-const API_BASE_URL = 'http://localhost:8000'; // 또는 'https://your-api-server.com'
+const API_BASE_URL = (() => {
+    if (typeof window !== 'undefined' && window.location.origin) {
+        const origin = window.location.origin;
+        if (origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
+            return 'http://localhost:8000';
+        }
+    }
+    return 'http://localhost:8000';
+})();
 
 // DOM 요소 참조
 let form;
@@ -105,16 +113,15 @@ function formatPhoneNumber(e) {
 }
 
 // ==========================================
-// 에러 메시지 표시
+// 에러 메시지 표시 (문자열 또는 배열 가능)
 // ==========================================
 function showError(message) {
-    errorMessage.textContent = message;
+    const text = Array.isArray(message) ? message.join('\n') : String(message);
+    errorMessage.textContent = text;
     errorMessage.classList.remove('hidden');
-    
-    // 3초 후 자동으로 사라지게
-    setTimeout(() => {
-        errorMessage.classList.add('hidden');
-    }, 5000);
+    errorMessage.style.whiteSpace = 'pre-line';
+    errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => errorMessage.classList.add('hidden'), 8000);
 }
 
 // ==========================================
@@ -130,53 +137,48 @@ function hideLoading() {
     submitBtn.disabled = false;
 }
 
+// 서버와 동일한 비밀번호 정책 (12~72자, 대/소/숫/특수 각 1개 이상)
+function passwordMeetsPolicy(password) {
+    if (typeof password !== 'string') return false;
+    if (password.length < 12 || password.length > 72) return false;
+    return /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+}
+
+function getPasswordPolicyErrors(password) {
+    const err = [];
+    if (password.length < 12) err.push('비밀번호는 12자 이상이어야 합니다.');
+    else if (password.length > 72) err.push('비밀번호는 72자 이하여야 합니다.');
+    if (!/[a-z]/.test(password)) err.push('소문자를 1개 이상 포함해주세요.');
+    if (!/[A-Z]/.test(password)) err.push('대문자를 1개 이상 포함해주세요.');
+    if (!/\d/.test(password)) err.push('숫자를 1개 이상 포함해주세요.');
+    if (!/[^A-Za-z0-9]/.test(password)) err.push('특수문자를 1개 이상 포함해주세요.');
+    return err;
+}
+
 // ==========================================
 // 입력값 유효성 검증
 // ==========================================
 function validateForm(formData) {
     const { name, email, phone, password, passwordConfirm } = formData;
+    const errors = [];
     
-    // 이름 검증
-    if (name.trim().length < 2) {
-        showError('이름은 2자 이상 입력해주세요.');
-        return false;
-    }
-    
-    // 이메일 형식 검증
+    if (name.trim().length < 2) errors.push('이름은 2자 이상 입력해주세요.');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        showError('올바른 이메일 형식을 입력해주세요.');
-        return false;
-    }
+    if (!emailRegex.test(email)) errors.push('올바른 이메일 형식을 입력해주세요.');
+    if (!/^010-\d{4}-\d{4}$/.test(phone)) errors.push('전화번호 형식이 올바르지 않습니다. (010-XXXX-XXXX)');
     
-    // 전화번호 검증 (010-XXXX-XXXX 형식)
-    const phoneRegex = /^010-\d{4}-\d{4}$/;
-    if (!phoneRegex.test(phone)) {
-        showError('올바른 전화번호 형식을 입력해주세요. (010-XXXX-XXXX)');
-        return false;
-    }
+    const pwErrors = getPasswordPolicyErrors(password);
+    if (pwErrors.length) errors.push(...pwErrors);
+    else if (password !== passwordConfirm) errors.push('비밀번호가 일치하지 않습니다.');
     
-    // 비밀번호 길이 검증
-    if (password.length < 8) {
-        showError('비밀번호는 8자 이상이어야 합니다.');
-        return false;
-    }
-    
-    // 비밀번호 일치 확인
-    if (password !== passwordConfirm) {
-        showError('비밀번호가 일치하지 않습니다.');
-        return false;
-    }
-    
-    // 약관 동의 확인
     const terms1 = document.getElementById('terms1').checked;
     const terms2 = document.getElementById('terms2').checked;
+    if (!terms1 || !terms2) errors.push('필수 약관에 모두 동의해주세요.');
     
-    if (!terms1 || !terms2) {
-        showError('필수 약관에 모두 동의해주세요.');
+    if (errors.length) {
+        showError(errors);
         return false;
     }
-    
     return true;
 }
 
@@ -215,53 +217,45 @@ async function handleSubmit(e) {
         
         const response = await fetch(`${API_BASE_URL}/signup`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,
                 password: formData.password
-                // passwordConfirm은 서버로 보내지 않음 (클라이언트에서만 검증)
             })
         });
         
-        console.log('서버 응답 상태:', response.status);
+        const data = await response.json().catch(() => ({ success: false, message: '응답을 읽을 수 없습니다.' }));
+        console.log('서버 응답 상태:', response.status, data);
         
-        // 응답 데이터 파싱
-        const data = await response.json();
-        console.log('서버 응답 데이터:', data);
-        
-        // 성공 응답 처리 (HTTP 201 Created)
         if (response.status === 201 && data.success) {
-            console.log('회원가입 성공!');
-            
-            // 성공 알림
             alert(`회원가입이 완료되었습니다!\n\n환영합니다, ${formData.name}님!\n로그인 페이지로 이동합니다.`);
-            
-            // 로그인 페이지로 이동
-            window.location.href = 'seniorble-login.html';
-            
-        } else if (response.status === 409) {
-            // 이메일 중복 (409 Conflict)
-            console.warn('이메일 중복:', data.message);
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        if (response.status === 409) {
             showError(data.message || '이미 가입된 이메일입니다.');
-            
-        } else if (response.status === 400) {
-            // 잘못된 요청 (400 Bad Request)
-            console.error('입력값 오류:', data);
+            return;
+        }
+        
+        if (response.status === 400) {
             if (data.errors && data.errors.length > 0) {
-                showError(data.errors.join('\n'));
+                showError(data.errors);
             } else {
                 showError(data.message || '입력값이 올바르지 않습니다.');
             }
-            
-        } else {
-            // 기타 에러
-            console.error('회원가입 실패:', data);
-            showError(data.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
+            return;
         }
+        
+        if (response.status >= 500) {
+            showError(data.message || '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+        
+        showError(data.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
         
     } catch (error) {
         // 네트워크 에러 또는 기타 예외 처리
