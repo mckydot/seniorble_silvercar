@@ -275,7 +275,7 @@ function goToHome() {
 }
 
 function goToAddPatient() {
-    window.location.href = 'add_patient.html';
+    window.location.href = 'addpatient.html';
 }
 
 // ==========================================

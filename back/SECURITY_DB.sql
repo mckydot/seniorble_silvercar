@@ -27,4 +27,20 @@ create table if not exists public.refresh_tokens (
 create index if not exists idx_refresh_tokens_user_id on public.refresh_tokens(user_id);
 create index if not exists idx_refresh_tokens_expires_at on public.refresh_tokens(expires_at);
 
+-- 환자 테이블: 보호자(users) 1명이 여러 환자 등록 (1:N)
+-- guardian_id로 소유권 구분, API에서 항상 guardian_id = 로그인 사용자로 필터
+create table if not exists public.patients (
+  id uuid primary key default gen_random_uuid(),
+  guardian_id uuid not null references public.users(id) on delete cascade,
+  name text not null,
+  birthdate date null,
+  gender text null,
+  device_serial_number text null,
+  notes text null,
+  relationship text null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_patients_guardian_id on public.patients(guardian_id);
+
 -- Optional: keep revoked/expired tokens cleaned periodically via scheduled job.

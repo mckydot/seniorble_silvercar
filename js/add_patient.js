@@ -47,8 +47,8 @@ const USER_KEY = 'seniorble_user';
 document.addEventListener('DOMContentLoaded', function() {
     console.log('환자 등록 페이지 로드 완료');
     
-    // 로그인 여부 확인
-    //checkAuthentication();
+    // JWT 인증: 로그인된 보호자만 접근 가능
+    if (!checkAuthentication()) return;
     
     // DOM 요소 가져오기
     form = document.getElementById('addPatientForm');
@@ -72,24 +72,18 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==========================================
-// 로그인 여부 확인
+// 로그인 여부 확인 (JWT 토큰 필수)
 // ==========================================
 function checkAuthentication() {
-    // 로컬 스토리지에서 토큰 확인
     const token = sessionStorage.getItem(TOKEN_KEY);
-    
     if (!token) {
-        // 토큰이 없으면 로그인 페이지로 리다이렉트
         console.log('로그인 정보 없음 - 로그인 페이지로 이동');
         alert('로그인이 필요한 서비스입니다.');
         window.location.href = 'login.html';
-        return;
+        return false;
     }
-    
     console.log('로그인 확인 완료');
-    
-    // 선택사항: 토큰 유효성 검증 API 호출
-    // validateToken(token);
+    return true;
 }
 
 // ==========================================
@@ -375,16 +369,14 @@ function validateForm(formData) {
         return false;
     }
     
-    // 센서 시리얼 번호 검증 (예: SN-로 시작, 최소 10자)
-    if (!deviceSerial.startsWith('SN-')) {
-        showError('센서 시리얼 번호는 "SN-"으로 시작해야 합니다.');
+    // 센서 시리얼 번호 검증 (테스트용: 규제 미적용, 비어있지만 않으면 통과)
+    if (!deviceSerial || deviceSerial.trim().length === 0) {
+        showError('센서 시리얼 번호를 입력해주세요.');
         return false;
     }
-    
-    if (deviceSerial.length < 10) {
-        showError('센서 시리얼 번호를 정확히 입력해주세요.');
-        return false;
-    }
+    // [규제 적용 시 복원] SN- 접두사·최소 길이 검증
+    // if (!deviceSerial.startsWith('SN-')) { showError('...'); return false; }
+    // if (deviceSerial.length < 10) { showError('...'); return false; }
     
     // 관계 검증
     if (!relationship) {
@@ -446,12 +438,19 @@ async function handleSubmit(e) {
         console.log('서버로 환자 등록 요청 전송...');
         
         // FastAPI 서버로 환자 등록 요청
+        if (!token) {
+            alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            window.location.href = 'login.html';
+            return;
+        }
+        
         const response = await fetch(`${API_BASE_URL}/patients`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // JWT 토큰 인증
+                'Authorization': `Bearer ${token}`
             },
+            credentials: 'include',
             body: JSON.stringify({
                 name: formData.patientName,
                 birthdate: formData.birthdate,
@@ -471,31 +470,25 @@ async function handleSubmit(e) {
         const data = await response.json();
         console.log('서버 응답 데이터:', data);
         
-        // 성공 응답 처리 (HTTP 201 Created)
+        if (response.status === 401) {
+            alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            sessionStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            window.location.href = 'login.html';
+            return;
+        }
+        
         if (response.ok) {
             console.log('환자 등록 성공!');
-            
-            // 성공 모달 표시
             showSuccessModal(formData.patientName);
-            
-            // 3초 후 메인 페이지로 자동 이동
-            setTimeout(() => {
-                goToHome();
-            }, 3000);
-            
-        } else {
-            // 에러 응답 처리
-            console.error('환자 등록 실패:', data);
-            
-            // 서버에서 보낸 에러 메시지 표시
-            if (data.detail) {
-                showError(data.detail);
-            } else if (data.message) {
-                showError(data.message);
-            } else {
-                showError('환자 등록에 실패했습니다. 다시 시도해주세요.');
-            }
+            setTimeout(() => goToHome(), 3000);
+            return;
         }
+        
+        console.error('환자 등록 실패:', data);
+        if (data.detail) showError(data.detail);
+        else if (data.message) showError(data.message);
+        else showError('환자 등록에 실패했습니다. 다시 시도해주세요.');
         
     } catch (error) {
         // 네트워크 에러 또는 기타 예외 처리
