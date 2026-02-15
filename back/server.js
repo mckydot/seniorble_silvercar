@@ -493,7 +493,7 @@ app.get('/patients', authenticateToken, requireRole(['guardian']), async (req, r
     try {
         const { data: patients, error } = await supabase
             .from('patients')
-            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, guardian_id, created_at')
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, created_at')
             .eq('guardian_id', req.user.id)
             .order('created_at', { ascending: false });
 
@@ -554,6 +554,90 @@ app.post('/patients', authenticateToken, requireRole(['guardian']), async (req, 
     }
 });
 
+/**
+ * 단일 환자 조회 (본인이 등록한 환자만)
+ * - guardian_id 일치 시에만 반환, 아니면 404 (다른 사용자 환자 노출 방지)
+ */
+app.get('/patients/:id', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const patientId = req.params.id;
+        const { data: patient, error } = await supabase
+            .from('patients')
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, created_at')
+            .eq('id', patientId)
+            .eq('guardian_id', req.user.id)
+            .single();
+
+        if (error || !patient) {
+            return res.status(404).json({ success: false, message: '환자를 찾을 수 없습니다.' });
+        }
+
+        res.status(200).json({ success: true, patient });
+    } catch (error) {
+        console.error('❌ 환자 조회 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
+/**
+ * 환자 정보 수정 (본인이 등록한 환자만)
+ * - guardian_id 변경 불가, body의 guardian_id는 무시
+ */
+app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const patientId = req.params.id;
+
+        const { data: existing, error: fetchError } = await supabase
+            .from('patients')
+            .select('id, guardian_id')
+            .eq('id', patientId)
+            .eq('guardian_id', req.user.id)
+            .single();
+
+        if (fetchError || !existing) {
+            return res.status(404).json({ success: false, message: '환자를 찾을 수 없습니다.' });
+        }
+
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : null;
+        const payload = {};
+        if (name !== null) {
+            if (name.length < 2 || name.length > 50) {
+                return res.status(400).json({ success: false, message: '입력값이 올바르지 않습니다.' });
+            }
+            payload.name = name;
+        }
+        if (req.body.hasOwnProperty('birthdate')) payload.birthdate = req.body.birthdate || null;
+        if (req.body.hasOwnProperty('gender')) payload.gender = req.body.gender || null;
+        if (req.body.hasOwnProperty('device_serial_number')) payload.device_serial_number = req.body.device_serial_number || null;
+        if (req.body.hasOwnProperty('notes')) payload.notes = req.body.notes || null;
+        if (req.body.hasOwnProperty('relationship')) payload.relationship = req.body.relationship || null;
+
+        const { data: patient, error: updateError } = await supabase
+            .from('patients')
+            .update(payload)
+            .eq('id', patientId)
+            .eq('guardian_id', req.user.id)
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, created_at')
+            .single();
+
+        if (updateError) {
+            console.error('❌ 환자 수정 DB 오류:', updateError);
+            return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+        }
+
+        res.status(200).json({ success: true, patient });
+    } catch (error) {
+        console.error('❌ 환자 수정 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
 // ==========================================
 // 404 에러 핸들러
 // ==========================================
@@ -600,9 +684,11 @@ app.listen(PORT, () => {
     console.log('  POST /login    - 로그인 (JWT 발급)');
     console.log('');
     console.log('  [인증 필요]');
-    console.log('  GET  /auth/me  - 현재 사용자 정보');
-    console.log('  GET  /patients - 환자 목록 (Guardian)');
-    console.log('  POST /patients - 환자 등록 (Guardian)');
+    console.log('  GET  /auth/me     - 현재 사용자 정보');
+    console.log('  GET  /patients    - 환자 목록 (Guardian, 본인 등록만)');
+    console.log('  GET  /patients/:id - 단일 환자 조회 (본인만)');
+    console.log('  POST /patients    - 환자 등록 (Guardian)');
+    console.log('  PUT  /patients/:id - 환자 수정 (본인만)');
     console.log('');
 });
 

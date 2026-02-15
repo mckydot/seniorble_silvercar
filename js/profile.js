@@ -24,43 +24,95 @@ const TOKEN_KEY = 'seniorble_token';
 // 현재 로그인한 사용자 정보
 let currentUser = null;
 
+/**
+ * Refresh 토큰으로 새 Access 토큰 발급 (httpOnly 쿠키 사용)
+ * @returns {Promise<string|null>} 새 accessToken 또는 null
+ */
+async function tryRefreshToken() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        if (response.ok && data.accessToken) {
+            sessionStorage.setItem(TOKEN_KEY, data.accessToken);
+            return data.accessToken;
+        }
+    } catch (e) {
+        console.warn('토큰 갱신 실패:', e);
+    }
+    return null;
+}
+
+/**
+ * 사용할 Access 토큰 반환 (sessionStorage 또는 refresh로 발급)
+ */
+async function getAccessToken() {
+    let token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) return token;
+    token = await tryRefreshToken();
+    return token;
+}
+
+/** API 관계 코드 → 한글 표시 (addpatient.html 옵션과 동일) */
+function relationshipToKorean(code) {
+    if (!code || typeof code !== 'string') return '—';
+    const trimmed = code.trim();
+    const map = {
+        son: '아들',
+        daughter: '딸',
+        spouse: '배우자',
+        grandson: '손자',
+        granddaughter: '손녀',
+        caregiver: '요양보호사',
+        other: '기타'
+    };
+    return map[trimmed] !== undefined ? map[trimmed] : trimmed;
+}
+
 // ==========================================
 // 페이지 로드 시 초기화
 // ==========================================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('프로필 페이지 로드 완료');
     
-    // 로그인 확인
-    checkAuthentication();
+    const ok = await checkAuthentication();
+    if (!ok) return;
     
-    // 보호자 정보 로드
     loadGuardianProfile();
-    
-    // 환자 목록 로드
     loadPatientsList();
 });
 
 // ==========================================
-// 로그인 확인
+// 로그인 확인 (토큰 없으면 refresh 시도 후 판단)
 // ==========================================
-function checkAuthentication() {
+async function checkAuthentication() {
     const userString = localStorage.getItem(USER_KEY);
-    const token = sessionStorage.getItem(TOKEN_KEY);
+    let token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token && userString) {
+        token = await tryRefreshToken();
+    }
     
     if (!userString || !token) {
         console.log('로그인 정보 없음 - 로그인 페이지로 이동');
         alert('로그인이 필요한 서비스입니다.');
         window.location.href = 'login.html';
-        return;
+        return false;
     }
     
     try {
         currentUser = JSON.parse(userString);
         console.log('현재 로그인 사용자:', currentUser);
+        return true;
     } catch (error) {
         console.error('사용자 정보 파싱 오류:', error);
         alert('로그인 정보가 올바르지 않습니다. 다시 로그인해주세요.');
-        handleLogout();
+        sessionStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        window.location.href = 'login.html';
+        return false;
     }
 }
 
@@ -103,7 +155,7 @@ function loadGuardianProfile() {
 }
 
 // ==========================================
-// 환자 목록 불러오기
+// 환자 목록 불러오기 (로그인한 보호자가 등록한 환자만 API에서 수신)
 // ==========================================
 async function loadPatientsList() {
     const patientsList = document.getElementById('patientsList');
@@ -112,72 +164,86 @@ async function loadPatientsList() {
     try {
         console.log('환자 목록 불러오기 시작...');
         
-        // TODO: 실제 API 연동 시 사용
-        // const token = localStorage.getItem(TOKEN_KEY);
-        // const response = await fetch(`${API_BASE_URL}/patients`, {
-        //     method: 'GET',
-        //     headers: {
-        //         'Authorization': `Bearer ${token}`
-        //     }
-        // });
-        // const data = await response.json();
-        // const patients = data.patients;
-        
-        // ==========================================
-        // 임시 데모 데이터 (실제로는 서버에서 받아옴)
-        // ==========================================
-        
-        // 로딩 시뮬레이션 (1초)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // 예시 환자 데이터
-        const patients = [
-            {
-                id: 1,
-                name: '김철수',
-                age: 78,
-                gender: 'male',
-                relationship: '부모님',
-                device_status: 'active',
-                last_checkup: '골다공증',
-                checkup_date: '1개월전'
+        let token = await getAccessToken();
+        if (!token) {
+            patientsList.innerHTML = '';
+            patientsList.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            sessionStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            window.location.href = 'login.html';
+            return;
+        }
+
+        let response = await fetch(`${API_BASE_URL}/patients`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             },
-            {
-                id: 2,
-                name: '박영희',
-                age: 75,
-                gender: 'female',
-                relationship: '조부모',
-                device_status: 'active',
-                last_checkup: '고혈압',
-                checkup_date: '2주전'
+            credentials: 'include'
+        });
+
+        if (response.status === 401) {
+            token = await tryRefreshToken();
+            if (token) {
+                response = await fetch(`${API_BASE_URL}/patients`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
             }
-        ];
-        
-        // 로딩 상태 제거
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+                sessionStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem(USER_KEY);
+                window.location.href = 'login.html';
+                return;
+            }
+            console.error('환자 목록 API 오류:', data.message || response.status);
+            throw new Error(data.message || '환자 목록을 불러올 수 없습니다.');
+        }
+
+        const rawPatients = data.patients || [];
+        const patients = rawPatients.map(p => ({
+            id: p.id,
+            name: p.name,
+            age: p.birthdate ? calculateAge(p.birthdate) : '—',
+            gender: p.gender || '',
+            relationship: relationshipToKorean(p.relationship),
+            last_checkup: p.notes && p.notes.trim() ? p.notes : '—',
+            checkup_date: p.created_at ? formatRelativeDate(p.created_at) : '—'
+        }));
+
         patientsList.innerHTML = '';
-        
+
         if (patients.length === 0) {
-            // 환자 없음 - 빈 상태 표시
             patientsList.classList.add('hidden');
             emptyState.classList.remove('hidden');
         } else {
-            // 환자 있음 - 카드 생성
             patientsList.classList.remove('hidden');
             emptyState.classList.add('hidden');
-            
             patients.forEach(patient => {
                 const patientCard = createPatientCard(patient);
                 patientsList.appendChild(patientCard);
             });
         }
-        
-        console.log(`환자 목록 로드 완료: ${patients.length}명`);
-        
+
+        console.log(`환자 목록 로드 완료: ${patients.length}명 (본인 등록만)`);
     } catch (error) {
         console.error('환자 목록 로드 중 오류:', error);
-        
-        // 에러 시 빈 상태 표시
+        patientsList.innerHTML = '';
+        patientsList.classList.remove('hidden');
+        emptyState.classList.add('hidden');
         patientsList.innerHTML = `
             <div class="error-state" style="text-align: center; padding: 40px 20px; color: var(--danger);">
                 <p>환자 목록을 불러오는 중 오류가 발생했습니다.</p>
@@ -211,14 +277,14 @@ function createPatientCard(patient) {
                 <h4 class="patient-name">${patient.name}</h4>
                 <div class="patient-detail">
                     <span class="patient-label">나이:</span>
-                    <span class="patient-value">${patient.age}세</span>
+                    <span class="patient-value">${patient.age === '—' ? '—' : patient.age + '세'}</span>
                 </div>
                 <div class="patient-detail">
                     <span class="patient-label">관계:</span>
                     <span class="patient-value">${patient.relationship}</span>
                 </div>
                 <div class="patient-detail">
-                    <span class="patient-label">최근진료:</span>
+                    <span class="patient-label">특징:</span>
                     <span class="patient-value">${patient.last_checkup} (${patient.checkup_date})</span>
                 </div>
                 <div class="patient-status">
@@ -323,12 +389,28 @@ function calculateAge(birthdate) {
     const birth = new Date(birthdate);
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
         age--;
     }
-    
+
     return age;
+}
+
+/**
+ * 상대 날짜 표시 (예: 1개월전, 2주전)
+ */
+function formatRelativeDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (diffDays === 0) return '오늘';
+    if (diffDays === 1) return '어제';
+    if (diffDays < 7) return `${diffDays}일 전`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
+    return `${Math.floor(diffDays / 365)}년 전`;
 }
 
 // ==========================================

@@ -14,6 +14,9 @@
 // 전역 변수 및 설정
 // ==========================================
 
+// API 서버 주소 (프로필·환자 목록과 동일)
+const API_BASE_URL = 'http://localhost:8000';
+
 // 로컬 스토리지 키
 const USER_KEY = 'seniorble_user';
 const TOKEN_KEY = 'seniorble_token'; // sessionStorage에 저장됨
@@ -32,6 +35,9 @@ window.addEventListener('DOMContentLoaded', function() {
     
     // 사용자 정보 표시
     loadUserInfo();
+    
+    // 로그인한 사용자가 등록한 환자만 메인 카드에 표시
+    loadPatientForMain();
     
     // 충격 감지 알림은 기본적으로 숨김
     document.querySelector('.impact-alert')?.classList.add('hidden');
@@ -90,6 +96,79 @@ function loadUserInfo() {
     }
     
     console.log('사용자 정보 표시 완료:', currentUser.name);
+}
+
+// ==========================================
+// 메인 환자 카드 표시 (본인이 등록한 환자만 API로 수신 후 표시)
+// ==========================================
+function calculateAge(birthdate) {
+    const today = new Date();
+    const birth = new Date(birthdate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+}
+
+function formatRelativeDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (diffDays === 0) return '오늘';
+    if (diffDays === 1) return '어제';
+    if (diffDays < 7) return diffDays + '일 전';
+    if (diffDays < 30) return Math.floor(diffDays / 7) + '주 전';
+    if (diffDays < 365) return Math.floor(diffDays / 30) + '개월 전';
+    return Math.floor(diffDays / 365) + '년 전';
+}
+
+async function loadPatientForMain() {
+    const nameEl = document.querySelector('.nameValue');
+    const ageEl = document.querySelector('.ageValue');
+    const guardianEl = document.querySelector('.guardianValue');
+    const diagnosisEl = document.querySelector('.diagnosis');
+    const timelineEl = document.querySelector('.recordTimeline');
+    if (!nameEl || !ageEl || !guardianEl || !diagnosisEl || !timelineEl) return;
+
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token) {
+        nameEl.textContent = '—';
+        ageEl.textContent = '—';
+        diagnosisEl.textContent = '등록된 환자가 없습니다';
+        timelineEl.textContent = '';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/patients`, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        const patients = (data.success && data.patients) ? data.patients : [];
+
+        if (patients.length === 0) {
+            nameEl.textContent = '—';
+            ageEl.textContent = '—';
+            diagnosisEl.textContent = '등록된 환자가 없습니다';
+            timelineEl.textContent = '';
+            return;
+        }
+
+        const p = patients[0];
+        nameEl.textContent = p.name || '—';
+        ageEl.textContent = p.birthdate ? calculateAge(p.birthdate) : '—';
+        guardianEl.textContent = currentUser ? currentUser.name : '—';
+        diagnosisEl.textContent = (p.notes && p.notes.trim()) ? p.notes : '—';
+        timelineEl.textContent = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
+    } catch (err) {
+        console.error('메인 환자 로드 오류:', err);
+        nameEl.textContent = '—';
+        ageEl.textContent = '—';
+        diagnosisEl.textContent = '불러오기 실패';
+        timelineEl.textContent = '';
+    }
 }
 
 // ==========================================
