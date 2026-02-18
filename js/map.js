@@ -4,14 +4,15 @@
  * ==========================================
  * - 좌표 변수로 지도 중심/마커 표시
  * - 카카오 지도 API + 근처 병원 키워드 검색
+ * - 병원 클릭 시 마커 표시/숨김 토글
  */
 
 // ==========================================
 // 좌표 설정 (원하는 위도·경도로 변경)
 // ==========================================
 const MAP_COORDS = {
-    lat: 34.7569,
-    lng: 126.3933
+    lat: 36.366444,
+    lng: 127.344713
 };
 // 예: 전남 (금호리조트 근처) — 필요 시 주소에 맞게 수정
 // 서울: { lat: 37.5665, lng: 126.9780 }
@@ -23,6 +24,8 @@ let map = null;
 let marker = null;
 let places = null;
 let geocoder = null;
+let hospitalMarkers = {}; // 병원 마커 저장 객체 (place.id: {marker, element})
+let selectedHospitalId = null; // 현재 선택된 병원 ID
 
 // ==========================================
 // 페이지 로드 시 지도·병원 초기화
@@ -81,6 +84,76 @@ function updateAddress() {
 }
 
 // ==========================================
+// 병원 마커 토글 함수
+// ==========================================
+function toggleHospitalMarker(place, cardElement) {
+    const placeId = place.id;
+    const lat = parseFloat(place.y);
+    const lng = parseFloat(place.x);
+
+    // 유효한 좌표인지 확인
+    if (isNaN(lat) || isNaN(lng) || !map) {
+        return;
+    }
+
+    // 이미 선택된 병원인 경우 -> 선택 해제
+    if (selectedHospitalId === placeId) {
+        // 마커 제거
+        if (hospitalMarkers[placeId]) {
+            hospitalMarkers[placeId].marker.setMap(null);
+            delete hospitalMarkers[placeId];
+        }
+        
+        // 카드 선택 해제
+        cardElement.classList.remove('selected');
+        selectedHospitalId = null;
+        
+        // 원래 위치로 지도 복귀
+        const originalPosition = new kakao.maps.LatLng(MAP_COORDS.lat, MAP_COORDS.lng);
+        map.setCenter(originalPosition);
+        map.setLevel(4);
+        
+        return;
+    }
+
+    // 다른 병원이 선택되어 있으면 먼저 해제
+    if (selectedHospitalId && hospitalMarkers[selectedHospitalId]) {
+        hospitalMarkers[selectedHospitalId].marker.setMap(null);
+        hospitalMarkers[selectedHospitalId].element.classList.remove('selected');
+        delete hospitalMarkers[selectedHospitalId];
+    }
+
+    // 새로운 병원 선택
+    const position = new kakao.maps.LatLng(lat, lng);
+    
+    // 초록색 마커 이미지 생성
+    const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png';
+    const imageSize = new kakao.maps.Size(36, 37);
+    const imageOption = { offset: new kakao.maps.Point(18, 37) };
+    const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+    
+    const hospitalMarker = new kakao.maps.Marker({
+        position: position,
+        image: markerImage,
+        map: map
+    });
+
+    // 마커와 카드 요소 저장
+    hospitalMarkers[placeId] = {
+        marker: hospitalMarker,
+        element: cardElement
+    };
+
+    // 카드에 선택 표시
+    cardElement.classList.add('selected');
+    selectedHospitalId = placeId;
+
+    // 지도 중심 이동
+    map.setCenter(position);
+    map.setLevel(3);
+}
+
+// ==========================================
 // 근처 병원 검색 (키워드: 병원)
 // ==========================================
 function searchHospitals() {
@@ -117,14 +190,11 @@ function searchHospitals() {
                 (addr ? '<div class="hospital-address">' + escapeHtml(addr) + '</div>' : '') +
                 (tel ? '<div class="hospital-tel"><a href="tel:' + escapeHtml(tel) + '">' + escapeHtml(tel) + '</a></div>' : '');
 
+            // 클릭 이벤트: 마커 토글
             card.addEventListener('click', function () {
-                const lat = parseFloat(place.y);
-                const lng = parseFloat(place.x);
-                if (!isNaN(lat) && !isNaN(lng) && map) {
-                    map.setCenter(new kakao.maps.LatLng(lat, lng));
-                    map.setLevel(3);
-                }
+                toggleHospitalMarker(place, card);
             });
+            
             listEl.appendChild(card);
         });
     }, {

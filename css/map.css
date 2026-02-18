@@ -162,3 +162,24 @@ body.map-page .mobile-nav {
     position: relative;
     flex: 1;
 }
+
+/* 선택된 병원 카드 스타일 */
+.hospital-card.selected {
+    background-color: #e8f4f8;
+    border: 2px solid #4a90e2;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+}
+
+.hospital-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hospital-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.hospital-card.selected:hover {
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
