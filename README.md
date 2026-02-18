@@ -262,6 +262,7 @@ const API_BASE_URL = 'http://localhost:8000';
 - [ ] 낙상 감지 알림 API
 
 ---
+
 #개발하면서 겪은 어려운점 및 해결방법
 
 ##카카오맵 api
