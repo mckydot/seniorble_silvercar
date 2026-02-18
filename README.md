@@ -262,14 +262,13 @@ const API_BASE_URL = 'http://localhost:8000';
 - [ ] 낙상 감지 알림 API
 
 ---
-
 #개발하면서 겪은 어려운점 및 해결방법
 
 ##카카오맵 api
 
 ###1 도메인문제
 카카오 api에서 앱 설명에 하나, Javascript SDK 키에 하나 이렇게 도메인을 등록해야하는데
-처음에는 https://mkydot.github.io/seniorble_silvercar 이런식으로 경로까지 포함해서 등록했었다
+처음에는 https://mckydot.github.io/seniorble_silvercar 이런식으로 경로까지 포함해서 등록했었다
 하지만 도메인등록은
 https://mckydot.github.io 까지 등록해야한다
 
@@ -279,7 +278,13 @@ https://mckydot.github.io 까지 등록해야한다
 처음에 이를 off로 두고 개발해서
 아무리 요청을 보내도
 개발자도 Network창에 403Error가 계속 발생했다. 
-저 설정을 해주고 난 이후로는 API가 정상작동하는 것을 확인 할 수 있다.
+저 설정을 해주고 난 이후로는 API가 정상작동하는 것을 확인 할 수 있었다.
 
+
+##CORS Error
+
+###github Page
+github page에서 localhost로는 요청을 못보낸다고 함..
+코드상 문제는 없었으나 깃허브로 배포한 프론트에서 localhost에 있는 서버로 요청을 보낼 수 없다고 함.
 
 Made with ❤️ for Seniorble
