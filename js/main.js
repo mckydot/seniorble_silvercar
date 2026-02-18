@@ -17,6 +17,19 @@
 // API 서버 주소 (프로필·환자 목록과 동일)
 const API_BASE_URL = 'http://localhost:8000';
 
+// ==========================================
+// 좌표 설정 (원하는 위도·경도로 변경)
+// ==========================================
+const MAP_COORDS = {
+    lat: 36.366444,
+    lng: 127.344713
+};
+
+let map = null;
+let marker = null;
+let places = null;
+let geocoder = null;
+
 // 로컬 스토리지 키
 const USER_KEY = 'seniorble_user';
 const TOKEN_KEY = 'seniorble_token'; // sessionStorage에 저장됨
@@ -38,6 +51,19 @@ window.addEventListener('DOMContentLoaded', function() {
     
     // 로그인한 사용자가 등록한 환자만 메인 카드에 표시
     loadPatientForMain();
+    
+    // 카카오 지도 API 로드 후 주소 업데이트
+    if (typeof kakao !== 'undefined' && kakao.maps) {
+        kakao.maps.load(function() {
+            updateAddress();
+        });
+    } else {
+        // 카카오 API가 없으면 좌표만 표시
+        const el = document.getElementById('location_name');
+        if (el) {
+            el.textContent = MAP_COORDS.lat.toFixed(5) + ', ' + MAP_COORDS.lng.toFixed(5);
+        }
+    }
     
     // 충격 감지 알림은 기본적으로 숨김
     document.querySelector('.impact-alert')?.classList.add('hidden');
@@ -69,10 +95,39 @@ function checkAuthentication() {
         console.error('사용자 정보 파싱 오류:', error);
         alert('로그인 정보가 올바르지 않습니다. 다시 로그인해주세요.');
         localStorage.removeItem(USER_KEY);
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         window.location.href = 'login.html';
     }
 }
+
+// ==========================================
+// 좌표 → 주소 표시 (Geocoder 사용, 없으면 좌표 표시)
+// ==========================================
+function updateAddress() {
+    const el = document.getElementById('location_name');
+    if (!el) {
+        console.warn('location_name 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    if (typeof kakao.maps.services !== 'undefined' && kakao.maps.services.Geocoder) {
+        geocoder = new kakao.maps.services.Geocoder();
+        geocoder.coord2Address(MAP_COORDS.lng, MAP_COORDS.lat, function (result, status) {
+            if (status === kakao.maps.services.Status.OK && result[0]) {
+                const addr = result[0].address;
+                el.textContent = addr.address_name || (addr.region_1depth_name + ' ' + addr.region_2depth_name) || '현재 위치';
+                console.log('주소 업데이트 완료:', el.textContent);
+            } else {
+                el.textContent = MAP_COORDS.lat.toFixed(5) + ', ' + MAP_COORDS.lng.toFixed(5);
+                console.log('주소 변환 실패 - 좌표 표시');
+            }
+        });
+    } else {
+        el.textContent = MAP_COORDS.lat.toFixed(5) + ', ' + MAP_COORDS.lng.toFixed(5);
+        console.log('Geocoder 사용 불가 - 좌표 표시');
+    }
+}
+
 
 // ==========================================
 // 사용자 정보 표시
@@ -231,19 +286,6 @@ function activateDangerMode() {
         tiltDesc.style.color = 'var(--danger)';
     }
     
-    // 가속도 - 비정상 증가
-    const accelValue = document.querySelector('.monitor-grid .monitor-item:nth-child(3) .monitor-value');
-    const accelDesc = document.querySelector('.monitor-grid .monitor-item:nth-child(3) .monitor-description');
-    if (accelValue) {
-        accelValue.textContent = '3.8';
-        accelValue.classList.remove('safe-value');
-        accelValue.classList.add('danger-value');
-    }
-    if (accelDesc) {
-        accelDesc.textContent = '급격한 가속도 변화';
-        accelDesc.style.color = 'var(--danger)';
-    }
-    
     // 충격 감지 알림 표시
     document.querySelector('.impact-alert')?.classList.remove('hidden');
     
@@ -294,19 +336,6 @@ function activateSafeMode() {
     if (tiltDesc) {
         tiltDesc.textContent = '정상 범위 (±15°)';
         tiltDesc.style.color = 'var(--text-light)';
-    }
-    
-    // 가속도 - 정상
-    const accelValue = document.querySelector('.monitor-grid .monitor-item:nth-child(3) .monitor-value');
-    const accelDesc = document.querySelector('.monitor-grid .monitor-item:nth-child(3) .monitor-description');
-    if (accelValue) {
-        accelValue.textContent = '1.2';
-        accelValue.classList.remove('danger-value');
-        accelValue.classList.add('safe-value');
-    }
-    if (accelDesc) {
-        accelDesc.textContent = '정상적인 움직임';
-        accelDesc.style.color = 'var(--text-light)';
     }
     
     // 충격 감지 알림 숨김
