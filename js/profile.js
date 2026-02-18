@@ -340,6 +340,10 @@ function goToHome() {
     window.location.href = 'index.html';
 }
 
+function goToMap() {
+    window.location.href = 'map.html';
+}
+
 function goToAddPatient() {
     window.location.href = 'addpatient.html';
 }

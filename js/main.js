@@ -364,9 +364,7 @@ function goToProfile() {
 }
 
 function goToMap() {
-    console.log('지도 페이지로 이동');
-    // TODO: 지도 페이지 구현
-    alert('지도 페이지는 준비 중입니다.');
+    window.location.href = 'map.html';
 }
 
 function goToContacts() {
