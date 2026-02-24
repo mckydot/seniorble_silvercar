@@ -69,7 +69,37 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 커스텀 드롭다운 초기화
     initCustomSelect();
+
+    // 생년월일: 시니어 특성상 60대 전후를 기준으로 기본값·범위 설정 (캘린더가 당일이 아닌 해당 연도에 열리도록)
+    initBirthdateInput();
 });
+
+// ==========================================
+// 생년월일 입력 초기화 (60대 기준 기본값·범위)
+// ==========================================
+function initBirthdateInput() {
+    const birthdateInput = document.getElementById('birthdate');
+    if (!birthdateInput) return;
+
+    const today = new Date();
+    const maxDate = formatDateForInput(today);
+    const minDate = '1900-01-01';
+
+    // max: 오늘 (미래 생년월일 방지)
+    birthdateInput.setAttribute('max', maxDate);
+    birthdateInput.setAttribute('min', minDate);
+
+    // 기본값: 오늘 기준 만 65세에 해당하는 생년월일 (캘린더가 60대 연도에 열리도록)
+    const defaultBirth = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+    birthdateInput.value = formatDateForInput(defaultBirth);
+}
+
+function formatDateForInput(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+}
 
 // ==========================================
 // 로그인 여부 확인 (JWT 토큰 필수)

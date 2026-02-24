@@ -127,18 +127,9 @@
             <div class="patientTitle">
                 <p class="patientTitleP">환자정보</p>
             </div>
-            <div class="patientContent">
-                <div class="profileWrap">
-                    <div class="patientProfile">
-                    <img src="src/profile.png" alt="프로필 사진">
-                </div>
-                </div>
-                <div class="patientInfo">
-                    <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">김철수</span></p>
-                    <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">78</span>세</p>
-                    <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">정상엽</span></p>
-                    <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">골다공증</span><span class="recordTimeline"> (1개월전)</span></p>
-                </div>
+            <div id="mainPatientList" class="main-patient-list">
+                <!-- 환자 카드는 js/main.js loadPatientForMain()에서 동적 생성 -->
+                <p class="main-patient-loading">환자 정보를 불러오는 중...</p>
             </div>
         </div>
 

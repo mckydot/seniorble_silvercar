@@ -835,6 +835,36 @@ body::after {
   font-size: 13px;
 }
 
+/* 메인 환자 목록 (여러 환자 카드) */
+.main-patient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.main-patient-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.main-patient-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.main-patient-loading,
+.main-patient-empty {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 14px;
+  padding: 24px 16px;
+  line-height: 1.5;
+}
+
 /* 테스트 버튼 스타일링 */
 #change,
 #change2 {

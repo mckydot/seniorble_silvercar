@@ -138,23 +138,18 @@ function loadUserInfo() {
         return;
     }
     
-    // 주 보호자 이름 표시
+    // 주 보호자 이름 표시 (상단 카드)
     const guardianNameElement = document.querySelector('.guardian_name span');
     if (guardianNameElement) {
         guardianNameElement.textContent = currentUser.name;
     }
-    
-    // 환자 정보의 주보호자 표시
-    const patientGuardianElement = document.querySelector('.guardianValue');
-    if (patientGuardianElement) {
-        patientGuardianElement.textContent = currentUser.name;
-    }
-    
+    // 환자별 카드의 주보호자는 loadPatientForMain()에서 채움
+
     console.log('사용자 정보 표시 완료:', currentUser.name);
 }
 
 // ==========================================
-// 메인 환자 카드 표시 (본인이 등록한 환자만 API로 수신 후 표시)
+// 메인 환자 카드 표시 (등록된 모든 환자 목록 표시)
 // ==========================================
 function calculateAge(birthdate) {
     const today = new Date();
@@ -178,20 +173,20 @@ function formatRelativeDate(dateString) {
     return Math.floor(diffDays / 365) + '년 전';
 }
 
+function escapeHtml(text) {
+    if (text == null || text === '') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 async function loadPatientForMain() {
-    const nameEl = document.querySelector('.nameValue');
-    const ageEl = document.querySelector('.ageValue');
-    const guardianEl = document.querySelector('.guardianValue');
-    const diagnosisEl = document.querySelector('.diagnosis');
-    const timelineEl = document.querySelector('.recordTimeline');
-    if (!nameEl || !ageEl || !guardianEl || !diagnosisEl || !timelineEl) return;
+    const container = document.getElementById('mainPatientList');
+    if (!container) return;
 
     const token = sessionStorage.getItem(TOKEN_KEY);
     if (!token) {
-        nameEl.textContent = '—';
-        ageEl.textContent = '—';
-        diagnosisEl.textContent = '등록된 환자가 없습니다';
-        timelineEl.textContent = '';
+        container.innerHTML = '<p class="main-patient-empty">등록된 환자가 없습니다. 로그인 후 프로필에서 환자를 등록해 주세요.</p>';
         return;
     }
 
@@ -204,25 +199,37 @@ async function loadPatientForMain() {
         const patients = (data.success && data.patients) ? data.patients : [];
 
         if (patients.length === 0) {
-            nameEl.textContent = '—';
-            ageEl.textContent = '—';
-            diagnosisEl.textContent = '등록된 환자가 없습니다';
-            timelineEl.textContent = '';
+            container.innerHTML = '<p class="main-patient-empty">등록된 환자가 없습니다. 프로필에서 환자를 등록해 주세요.</p>';
             return;
         }
 
-        const p = patients[0];
-        nameEl.textContent = p.name || '—';
-        ageEl.textContent = p.birthdate ? calculateAge(p.birthdate) : '—';
-        guardianEl.textContent = currentUser ? currentUser.name : '—';
-        diagnosisEl.textContent = (p.notes && p.notes.trim()) ? p.notes : '—';
-        timelineEl.textContent = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
+        const guardianName = currentUser ? currentUser.name : '—';
+        container.innerHTML = '';
+
+        patients.forEach(function (p) {
+            const name = p.name || '—';
+            const age = p.birthdate ? calculateAge(p.birthdate) : '—';
+            const diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
+            const timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
+            const profileImg = 'src/profile.png';
+
+            const card = document.createElement('div');
+            card.className = 'patientContent main-patient-card';
+            card.innerHTML =
+                '<div class="profileWrap">' +
+                '  <div class="patientProfile"><img src="' + escapeHtml(profileImg) + '" alt="' + escapeHtml(name) + ' 프로필"></div>' +
+                '</div>' +
+                '<div class="patientInfo">' +
+                '  <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">' + escapeHtml(name) + '</span></p>' +
+                '  <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">' + escapeHtml(String(age)) + '</span>세</p>' +
+                '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
+                '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
+                '</div>';
+            container.appendChild(card);
+        });
     } catch (err) {
         console.error('메인 환자 로드 오류:', err);
-        nameEl.textContent = '—';
-        ageEl.textContent = '—';
-        diagnosisEl.textContent = '불러오기 실패';
-        timelineEl.textContent = '';
+        container.innerHTML = '<p class="main-patient-empty">환자 정보를 불러오지 못했습니다. 다시 시도해 주세요.</p>';
     }
 }
 
