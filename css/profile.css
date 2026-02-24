@@ -55,9 +55,9 @@ body::before {
 }
 
 /* ==================== 
-   상단 네비게이션 바 
+   상단 네비게이션 바 수정
    ==================== */
-.mobile-nav {
+   .mobile-nav {
     position: fixed;
     top: 0;
     left: 0;
@@ -77,6 +77,7 @@ body::before {
 .back-btn, .logout-btn {
     width: 40px;
     height: 40px;
+    min-width: 40px; /* 버튼 최소 너비 고정 */
     border: none;
     background: none;
     color: var(--primary);
@@ -86,6 +87,7 @@ body::before {
     justify-content: center;
     border-radius: 10px;
     transition: all 0.3s ease;
+    flex-shrink: 0; /* 버튼이 줄어들지 않도록 */
 }
 
 .back-btn:active, .logout-btn:active {
@@ -97,6 +99,9 @@ body::before {
     font-size: 18px;
     font-weight: 600;
     color: var(--text-dark);
+    flex: 1; /* 남은 공간 차지 */
+    text-align: center; /* 중앙 정렬 */
+    margin: 0 8px; /* 좌우 여백 */
 }
 
 /* ==================== 
