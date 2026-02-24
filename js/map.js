@@ -81,6 +81,57 @@ function getCurrentPatient() {
 }
 
 // ==========================================
+// 병원 정보 팝업 (지도 전용)
+// ==========================================
+function showHospitalPopup(place) {
+    const popup = document.getElementById('hospitalPopup');
+    const nameEl = document.getElementById('hospitalPopupName');
+    const addrEl = document.getElementById('hospitalPopupAddress');
+    const telEl = document.getElementById('hospitalPopupTel');
+    const callLink = document.getElementById('hospitalPopupCall');
+    const copyBtn = document.getElementById('hospitalPopupCopy');
+    if (!popup || !nameEl) return;
+
+    const name = (place && place.place_name) ? place.place_name : '—';
+    const addr = (place && (place.road_address_name || place.address_name)) ? (place.road_address_name || place.address_name) : '—';
+    const tel = (place && place.phone) ? place.phone : '';
+
+    nameEl.textContent = name;
+    addrEl.textContent = addr;
+    telEl.textContent = tel || '—';
+
+    const actionsEl = popup.querySelector('.popup-actions');
+    if (tel) {
+        callLink.href = 'tel:' + tel.replace(/\s/g, '');
+        callLink.style.display = '';
+        copyBtn.style.display = '';
+        if (actionsEl) actionsEl.style.display = 'flex';
+        copyBtn.onclick = function () {
+            navigator.clipboard.writeText(tel).then(function () {
+                if (typeof alert === 'function') alert('전화번호가 복사되었습니다.');
+            }).catch(function () {
+                if (typeof alert === 'function') alert('복사에 실패했습니다.');
+            });
+        };
+    } else {
+        if (actionsEl) actionsEl.style.display = 'none';
+    }
+
+    popup.classList.remove('hidden');
+    popup.setAttribute('aria-hidden', 'false');
+}
+
+function closeHospitalPopup() {
+    const popup = document.getElementById('hospitalPopup');
+    if (popup) {
+        popup.classList.add('hidden');
+        popup.setAttribute('aria-hidden', 'true');
+    }
+}
+
+// 환자 정보 팝업은 공통 모듈(common.js)의 showPatientPopup / closePatientPopup 사용
+
+// ==========================================
 // 페이지 로드: 인증 → 환자 목록 → 지도 초기화
 // ==========================================
 document.addEventListener('DOMContentLoaded', async function () {
@@ -174,7 +225,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             tab.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
             tab.dataset.index = String(idx);
             tab.addEventListener('click', function () {
-                switchPatientTab(Number(tab.dataset.index));
+                const idx = Number(tab.dataset.index);
+                switchPatientTab(idx);
+                showPatientPopup(patients[idx]);
             });
             tabsContainer.appendChild(tab);
         });
@@ -364,6 +417,7 @@ function searchHospitals() {
 
             card.addEventListener('click', function () {
                 toggleHospitalMarker(place, card);
+                showHospitalPopup(place);
             });
             listEl.appendChild(card);
         });

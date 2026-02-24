@@ -1,0 +1,140 @@
+/* ==================== 팝업 카드 (병원 정보 / 환자 정보) ==================== */
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: popupFadeIn 0.25s ease;
+}
+.popup-overlay.hidden {
+    display: none !important;
+}
+@keyframes popupFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.popup-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+
+.popup-card {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    max-height: 85vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    animation: popupCardIn 0.3s ease;
+}
+@keyframes popupCardIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.popup-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: var(--cream);
+    color: var(--text-dark);
+    font-size: 24px;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s;
+}
+.popup-close:hover {
+    background: var(--border);
+}
+
+.popup-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-dark);
+    padding: 20px 20px 8px;
+    margin: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 12px;
+}
+
+.popup-body {
+    padding: 8px 20px 20px;
+}
+.popup-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 14px 0;
+    font-size: 14px;
+}
+.popup-row:last-child {
+    margin-bottom: 0;
+}
+.popup-label {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 12px;
+}
+.popup-body .popup-row span:last-child {
+    color: var(--text-dark);
+    line-height: 1.5;
+}
+
+.popup-actions {
+    display: flex;
+    gap: 10px;
+    padding: 12px 20px 20px;
+    border-top: 1px solid var(--border);
+}
+.popup-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+.popup-btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
+.popup-btn-primary:hover {
+    background: var(--primary-light);
+}
+.popup-btn-secondary {
+    background: var(--cream);
+    color: var(--text-dark);
+    border: 2px solid var(--border);
+}
+.popup-btn-secondary:hover {
+    border-color: var(--primary-light);
+    color: var(--primary);
+}

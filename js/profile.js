@@ -56,20 +56,10 @@ async function getAccessToken() {
     return token;
 }
 
-/** API 관계 코드 → 한글 표시 (addpatient.html 옵션과 동일) */
+/** API 관계 코드 → 한글 (공통 모듈 사용) */
 function relationshipToKorean(code) {
-    if (!code || typeof code !== 'string') return '—';
-    const trimmed = code.trim();
-    const map = {
-        son: '아들',
-        daughter: '딸',
-        spouse: '배우자',
-        grandson: '손자',
-        granddaughter: '손녀',
-        caregiver: '요양보호사',
-        other: '기타'
-    };
-    return map[trimmed] !== undefined ? map[trimmed] : trimmed;
+    return (window.SeniorbleCommon && window.SeniorbleCommon.relationshipToKorean)
+        ? window.SeniorbleCommon.relationshipToKorean(code) : (code || '—');
 }
 
 // ==========================================
@@ -214,14 +204,16 @@ async function loadPatientsList() {
         }
 
         const rawPatients = data.patients || [];
+        const calcAge = (window.SeniorbleCommon && window.SeniorbleCommon.calculateAge) || function () { return '—'; };
+        const fmtRel = (window.SeniorbleCommon && window.SeniorbleCommon.formatRelativeDate) || function () { return '—'; };
         const patients = rawPatients.map(p => ({
             id: p.id,
             name: p.name,
-            age: p.birthdate ? calculateAge(p.birthdate) : '—',
+            age: p.birthdate ? calcAge(p.birthdate) : '—',
             gender: p.gender || '',
             relationship: relationshipToKorean(p.relationship),
             last_checkup: p.notes && p.notes.trim() ? p.notes : '—',
-            checkup_date: p.created_at ? formatRelativeDate(p.created_at) : '—'
+            checkup_date: p.created_at ? fmtRel(p.created_at) : '—'
         }));
 
         patientsList.innerHTML = '';
@@ -232,8 +224,8 @@ async function loadPatientsList() {
         } else {
             patientsList.classList.remove('hidden');
             emptyState.classList.add('hidden');
-            patients.forEach(patient => {
-                const patientCard = createPatientCard(patient);
+            patients.forEach((patient, i) => {
+                const patientCard = createPatientCard(patient, rawPatients[i]);
                 patientsList.appendChild(patientCard);
             });
         }
@@ -256,12 +248,18 @@ async function loadPatientsList() {
 }
 
 // ==========================================
-// 환자 카드 생성 (메인 페이지 스타일과 동일)
+// 환자 카드 생성 (메인 페이지 스타일과 동일, 클릭 시 환자 정보 팝업)
 // ==========================================
-function createPatientCard(patient) {
+function createPatientCard(patient, rawPatient) {
     const card = document.createElement('div');
     card.className = 'patient-card';
-    card.onclick = () => goToPatientDetail(patient.id);
+    card.onclick = function () {
+        if (typeof window.showPatientPopup === 'function' && rawPatient) {
+            window.showPatientPopup(rawPatient);
+        } else {
+            goToPatientDetail(patient.id);
+        }
+    };
     
     // 프로필 이미지 경로 (성별에 따라 다른 이미지 사용 가능)
     const profileImage = patient.gender === 'male' 
@@ -385,37 +383,7 @@ function formatDate(dateString) {
     return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
-/**
- * 나이 계산 (생년월일 → 만 나이)
- */
-function calculateAge(birthdate) {
-    const today = new Date();
-    const birth = new Date(birthdate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
-
-    return age;
-}
-
-/**
- * 상대 날짜 표시 (예: 1개월전, 2주전)
- */
-function formatRelativeDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-    if (diffDays === 0) return '오늘';
-    if (diffDays === 1) return '어제';
-    if (diffDays < 7) return `${diffDays}일 전`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
-    return `${Math.floor(diffDays / 365)}년 전`;
-}
+// calculateAge, formatRelativeDate → 공통 모듈(common.js) SeniorbleCommon 사용
 
 // ==========================================
 // 개발 참고사항

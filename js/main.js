@@ -151,34 +151,7 @@ function loadUserInfo() {
 // ==========================================
 // 메인 환자 카드 표시 (등록된 모든 환자 목록 표시)
 // ==========================================
-function calculateAge(birthdate) {
-    const today = new Date();
-    const birth = new Date(birthdate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-}
-
-function formatRelativeDate(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-    if (diffDays === 0) return '오늘';
-    if (diffDays === 1) return '어제';
-    if (diffDays < 7) return diffDays + '일 전';
-    if (diffDays < 30) return Math.floor(diffDays / 7) + '주 전';
-    if (diffDays < 365) return Math.floor(diffDays / 30) + '개월 전';
-    return Math.floor(diffDays / 365) + '년 전';
-}
-
-function escapeHtml(text) {
-    if (text == null || text === '') return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+var SeniorbleCommon = window.SeniorbleCommon || {};
 
 async function loadPatientForMain() {
     const container = document.getElementById('mainPatientList');
@@ -206,14 +179,18 @@ async function loadPatientForMain() {
         const guardianName = currentUser ? currentUser.name : '—';
         container.innerHTML = '';
 
-        patients.forEach(function (p) {
-            const name = p.name || '—';
-            const age = p.birthdate ? calculateAge(p.birthdate) : '—';
-            const diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
-            const timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
-            const profileImg = 'src/profile.png';
+        var calculateAge = SeniorbleCommon.calculateAge || function (b) { return b ? '—' : null; };
+        var formatRelativeDate = SeniorbleCommon.formatRelativeDate || function () { return ''; };
+        var escapeHtml = SeniorbleCommon.escapeHtml || function (t) { return (t == null || t === '') ? '' : String(t); };
 
-            const card = document.createElement('div');
+        patients.forEach(function (p) {
+            var name = p.name || '—';
+            var age = p.birthdate ? calculateAge(p.birthdate) : '—';
+            var diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
+            var timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
+            var profileImg = 'src/profile.png';
+
+            var card = document.createElement('div');
             card.className = 'patientContent main-patient-card';
             card.innerHTML =
                 '<div class="profileWrap">' +
@@ -225,6 +202,9 @@ async function loadPatientForMain() {
                 '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
                 '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
                 '</div>';
+            card.addEventListener('click', function () {
+                if (typeof window.showPatientPopup === 'function') window.showPatientPopup(p);
+            });
             container.appendChild(card);
         });
     } catch (err) {

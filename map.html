@@ -6,6 +6,7 @@
     <title>Seniorble - 지도</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/map.css">
+    <link rel="stylesheet" href="css/patientCard.css">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body class="map-page">
@@ -80,8 +81,43 @@
         </button>
     </nav>
 
+    <!-- 병원 정보 팝업 카드 -->
+    <div id="hospitalPopup" class="popup-overlay hidden" aria-hidden="true">
+        <div class="popup-backdrop" onclick="closeHospitalPopup()"></div>
+        <div class="popup-card popup-card-hospital">
+            <button type="button" class="popup-close" onclick="closeHospitalPopup()" aria-label="닫기">×</button>
+            <h3 class="popup-title" id="hospitalPopupTitle">병원 정보</h3>
+            <div class="popup-body">
+                <p class="popup-row"><span class="popup-label">병원명</span><span id="hospitalPopupName">—</span></p>
+                <p class="popup-row"><span class="popup-label">주소</span><span id="hospitalPopupAddress">—</span></p>
+                <p class="popup-row"><span class="popup-label">전화</span><span id="hospitalPopupTel">—</span></p>
+            </div>
+            <div class="popup-actions">
+                <a id="hospitalPopupCall" href="#" class="popup-btn popup-btn-primary">전화 걸기</a>
+                <button type="button" id="hospitalPopupCopy" class="popup-btn popup-btn-secondary">전화번호 복사</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 환자 정보 팝업 카드 -->
+    <div id="patientPopup" class="popup-overlay hidden" aria-hidden="true">
+        <div class="popup-backdrop" onclick="closePatientPopup()"></div>
+        <div class="popup-card popup-card-patient">
+            <button type="button" class="popup-close" onclick="closePatientPopup()" aria-label="닫기">×</button>
+            <h3 class="popup-title">환자 정보</h3>
+            <div class="popup-body">
+                <p class="popup-row"><span class="popup-label">이름</span><span id="patientPopupName">—</span></p>
+                <p class="popup-row"><span class="popup-label">나이</span><span id="patientPopupAge">—</span></p>
+                <p class="popup-row"><span class="popup-label">성별</span><span id="patientPopupGender">—</span></p>
+                <p class="popup-row"><span class="popup-label">관계</span><span id="patientPopupRelation">—</span></p>
+                <p class="popup-row"><span class="popup-label">특징</span><span id="patientPopupNotes">—</span></p>
+            </div>
+        </div>
+    </div>
+
     <!-- 카카오 지도 API (libraries=services: 키워드 검색) -->
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=2c271508401b51bfee7b1ffc394f71e0&libraries=services"></script>
+    <script src="js/common.js"></script>
     <script src="js/map.js"></script>
 </body>
 </html>
