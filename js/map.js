@@ -2,40 +2,185 @@
  * ==========================================
  * Seniorble 지도 페이지
  * ==========================================
- * - 좌표 변수로 지도 중심/마커 표시
+ * - JWT 인증 후 접근, 로그인 안 되어 있으면 로그인 페이지로 이동
+ * - 등록된 환자 목록 조회 후 환자별 탭 표시 (1명이면 탭 1개, 2명 이상이면 탭으로 전환)
+ * - 탭별로 해당 환자 위치(좌표) 기준 지도·병원 검색
  * - 카카오 지도 API + 근처 병원 키워드 검색
- * - 병원 클릭 시 마커 표시/숨김 토글
  */
 
 // ==========================================
-// 좌표 설정 (원하는 위도·경도로 변경)
+// 설정 및 전역 변수
 // ==========================================
-const MAP_COORDS = {
-    lat: 36.366444,
-    lng: 127.344713
-};
-// 예: 전남 (금호리조트 근처) — 필요 시 주소에 맞게 수정
-// 서울: { lat: 37.5665, lng: 126.9780 }
-
+const API_BASE_URL = 'http://localhost:8000';
 const USER_KEY = 'seniorble_user';
 const TOKEN_KEY = 'seniorble_token';
+
+// 기본 좌표 (환자별 위치 API 없을 때 공통 사용)
+const DEFAULT_MAP_COORDS = { lat: 36.366444, lng: 127.344713 };
 
 let map = null;
 let marker = null;
 let places = null;
 let geocoder = null;
-let hospitalMarkers = {}; // 병원 마커 저장 객체 (place.id: {marker, element})
-let selectedHospitalId = null; // 현재 선택된 병원 ID
+let hospitalMarkers = {};
+let selectedHospitalId = null;
+
+// 환자 목록 및 선택 인덱스
+let patients = [];
+let selectedPatientIndex = 0;
 
 // ==========================================
-// 페이지 로드 시 지도·병원 초기화
+// 인증 (토큰 갱신·조회·로그인 확인)
 // ==========================================
-document.addEventListener('DOMContentLoaded', function () {
+async function tryRefreshToken() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        if (response.ok && data.accessToken) {
+            sessionStorage.setItem(TOKEN_KEY, data.accessToken);
+            return data.accessToken;
+        }
+    } catch (e) {
+        console.warn('토큰 갱신 실패:', e);
+    }
+    return null;
+}
+
+async function getAccessToken() {
+    let token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) return token;
+    token = await tryRefreshToken();
+    return token;
+}
+
+async function checkAuthentication() {
+    const userString = localStorage.getItem(USER_KEY);
+    let token = sessionStorage.getItem(TOKEN_KEY);
+    if (!token && userString) token = await tryRefreshToken();
+
+    if (!userString || !token) {
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = 'login.html';
+        return false;
+    }
+    return true;
+}
+
+// 현재 선택된 환자의 좌표 (환자별 위치 필드 없으면 기본값)
+function getCurrentCoords() {
+    return DEFAULT_MAP_COORDS;
+}
+
+// 현재 선택된 환자
+function getCurrentPatient() {
+    return patients[selectedPatientIndex] || null;
+}
+
+// ==========================================
+// 페이지 로드: 인증 → 환자 목록 → 지도 초기화
+// ==========================================
+document.addEventListener('DOMContentLoaded', async function () {
+    const authOk = await checkAuthentication();
+    if (!authOk) return;
+
+    const tabsWrap = document.getElementById('patientTabsWrap');
+    const tabsContainer = document.getElementById('patientTabs');
+    const noPatientsEl = document.getElementById('mapNoPatients');
+    const contentArea = document.getElementById('mapContentArea');
+
     if (typeof kakao === 'undefined' || !kakao.maps) {
-        document.getElementById('mapAddress').textContent = '카카오 지도 API 키를 설정해주세요. (map.html 스크립트 src의 appkey)';
-        document.getElementById('hospitalLoading').textContent = '지도 API 키 설정 후 병원 목록을 불러올 수 있습니다.';
+        if (contentArea) {
+            const addrEl = document.getElementById('mapAddress');
+            if (addrEl) addrEl.textContent = '카카오 지도 API 키를 설정해주세요.';
+            const loadingEl = document.getElementById('hospitalLoading');
+            if (loadingEl) loadingEl.textContent = '지도 API 키 설정 후 병원 목록을 불러올 수 있습니다.';
+        }
         return;
     }
+
+    let token = await getAccessToken();
+    if (!token) {
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = 'login.html';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/patients`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (response.status === 401 && data.message) {
+            const newToken = await tryRefreshToken();
+            if (newToken) {
+                const retryRes = await fetch(`${API_BASE_URL}/patients`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${newToken}`, 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                const retryData = await retryRes.json();
+                if (retryRes.ok && retryData.patients) {
+                    patients = retryData.patients;
+                } else {
+                    alert('인증이 만료되었습니다. 다시 로그인해 주세요.');
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } else {
+                alert('인증이 만료되었습니다. 다시 로그인해 주세요.');
+                window.location.href = 'login.html';
+                return;
+            }
+        } else if (!response.ok || !data.success) {
+            patients = [];
+        } else {
+            patients = data.patients || [];
+        }
+    } catch (err) {
+        console.error('환자 목록 조회 오류:', err);
+        patients = [];
+    }
+
+    if (patients.length === 0) {
+        if (noPatientsEl) noPatientsEl.classList.remove('hidden');
+        if (tabsWrap) tabsWrap.classList.add('hidden');
+        if (contentArea) contentArea.classList.add('hidden');
+        return;
+    }
+
+    if (noPatientsEl) noPatientsEl.classList.add('hidden');
+    if (contentArea) contentArea.classList.remove('hidden');
+
+    // 환자 탭 렌더링 (1명이어도 탭으로 통일하여 동일 코드 경로)
+    if (tabsWrap && tabsContainer) {
+        tabsWrap.classList.remove('hidden');
+        tabsContainer.innerHTML = '';
+        patients.forEach(function (p, idx) {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'patient-tab' + (idx === 0 ? ' active' : '');
+            tab.textContent = p.name || '환자 ' + (idx + 1);
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+            tab.dataset.index = String(idx);
+            tab.addEventListener('click', function () {
+                switchPatientTab(Number(tab.dataset.index));
+            });
+            tabsContainer.appendChild(tab);
+        });
+    }
+
+    selectedPatientIndex = 0;
 
     kakao.maps.load(function () {
         initMap();
@@ -45,18 +190,57 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ==========================================
-// 지도 초기화 및 마커 표시
+// 환자 탭 전환
+// ==========================================
+function switchPatientTab(index) {
+    if (index === selectedPatientIndex || index < 0 || index >= patients.length) return;
+    selectedPatientIndex = index;
+
+    const tabs = document.querySelectorAll('.patient-tab');
+    tabs.forEach(function (t, i) {
+        t.classList.toggle('active', i === index);
+        t.setAttribute('aria-selected', i === index ? 'true' : 'false');
+    });
+
+    // 기존 병원 마커 제거
+    Object.keys(hospitalMarkers).forEach(function (placeId) {
+        if (hospitalMarkers[placeId]) {
+            hospitalMarkers[placeId].marker.setMap(null);
+        }
+    });
+    hospitalMarkers = {};
+    selectedHospitalId = null;
+    document.querySelectorAll('.hospital-card.selected').forEach(function (el) {
+        el.classList.remove('selected');
+    });
+
+    const coords = getCurrentCoords();
+    if (map && marker) {
+        const position = new kakao.maps.LatLng(coords.lat, coords.lng);
+        map.setCenter(position);
+        map.setLevel(4);
+        marker.setPosition(position);
+    }
+    updateAddress();
+    searchHospitals();
+}
+
+// ==========================================
+// 지도 초기화 및 마커
 // ==========================================
 function initMap() {
     const container = document.getElementById('map');
+    if (!container) return;
+
+    const coords = getCurrentCoords();
     const options = {
-        center: new kakao.maps.LatLng(MAP_COORDS.lat, MAP_COORDS.lng),
+        center: new kakao.maps.LatLng(coords.lat, coords.lng),
         level: 4
     };
 
     map = new kakao.maps.Map(container, options);
 
-    const position = new kakao.maps.LatLng(MAP_COORDS.lat, MAP_COORDS.lng);
+    const position = new kakao.maps.LatLng(coords.lat, coords.lng);
     marker = new kakao.maps.Marker({
         position: position,
         map: map
@@ -64,109 +248,97 @@ function initMap() {
 }
 
 // ==========================================
-// 좌표 → 주소 표시 (Geocoder 사용, 없으면 좌표 표시)
+// 좌표 → 주소 표시 (현재 선택 환자 기준 라벨)
 // ==========================================
 function updateAddress() {
     const el = document.getElementById('mapAddress');
+    if (!el) return;
+
+    const patient = getCurrentPatient();
+    const coords = getCurrentCoords();
+
     if (typeof kakao.maps.services !== 'undefined' && kakao.maps.services.Geocoder) {
-        geocoder = new kakao.maps.services.Geocoder();
-        geocoder.coord2Address(MAP_COORDS.lng, MAP_COORDS.lat, function (result, status) {
+        if (!geocoder) geocoder = new kakao.maps.services.Geocoder();
+        geocoder.coord2Address(coords.lng, coords.lat, function (result, status) {
             if (status === kakao.maps.services.Status.OK && result[0]) {
                 const addr = result[0].address;
-                el.textContent = addr.address_name || (addr.region_1depth_name + ' ' + addr.region_2depth_name) || '현재 위치';
+                const addrText = addr.address_name || (addr.region_1depth_name + ' ' + addr.region_2depth_name) || '현재 위치';
+                el.textContent = patient ? patient.name + '님 위치 · ' + addrText : addrText;
             } else {
-                el.textContent = MAP_COORDS.lat.toFixed(5) + ', ' + MAP_COORDS.lng.toFixed(5);
+                el.textContent = (patient ? patient.name + '님 위치 · ' : '') + coords.lat.toFixed(5) + ', ' + coords.lng.toFixed(5);
             }
         });
     } else {
-        el.textContent = MAP_COORDS.lat.toFixed(5) + ', ' + MAP_COORDS.lng.toFixed(5);
+        el.textContent = (patient ? patient.name + '님 위치 · ' : '') + coords.lat.toFixed(5) + ', ' + coords.lng.toFixed(5);
     }
 }
 
 // ==========================================
-// 병원 마커 토글 함수
+// 병원 마커 토글
 // ==========================================
 function toggleHospitalMarker(place, cardElement) {
     const placeId = place.id;
     const lat = parseFloat(place.y);
     const lng = parseFloat(place.x);
 
-    // 유효한 좌표인지 확인
-    if (isNaN(lat) || isNaN(lng) || !map) {
-        return;
-    }
+    if (isNaN(lat) || isNaN(lng) || !map) return;
 
-    // 이미 선택된 병원인 경우 -> 선택 해제
+    const coords = getCurrentCoords();
+
     if (selectedHospitalId === placeId) {
-        // 마커 제거
         if (hospitalMarkers[placeId]) {
             hospitalMarkers[placeId].marker.setMap(null);
             delete hospitalMarkers[placeId];
         }
-        
-        // 카드 선택 해제
         cardElement.classList.remove('selected');
         selectedHospitalId = null;
-        
-        // 원래 위치로 지도 복귀
-        const originalPosition = new kakao.maps.LatLng(MAP_COORDS.lat, MAP_COORDS.lng);
-        map.setCenter(originalPosition);
+        const position = new kakao.maps.LatLng(coords.lat, coords.lng);
+        map.setCenter(position);
         map.setLevel(4);
-        
         return;
     }
 
-    // 다른 병원이 선택되어 있으면 먼저 해제
     if (selectedHospitalId && hospitalMarkers[selectedHospitalId]) {
         hospitalMarkers[selectedHospitalId].marker.setMap(null);
         hospitalMarkers[selectedHospitalId].element.classList.remove('selected');
         delete hospitalMarkers[selectedHospitalId];
     }
 
-    // 새로운 병원 선택
     const position = new kakao.maps.LatLng(lat, lng);
-    
-    // 초록색 마커 이미지 생성
     const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png';
     const imageSize = new kakao.maps.Size(36, 37);
     const imageOption = { offset: new kakao.maps.Point(18, 37) };
     const markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
-    
+
     const hospitalMarker = new kakao.maps.Marker({
         position: position,
         image: markerImage,
         map: map
     });
 
-    // 마커와 카드 요소 저장
-    hospitalMarkers[placeId] = {
-        marker: hospitalMarker,
-        element: cardElement
-    };
-
-    // 카드에 선택 표시
+    hospitalMarkers[placeId] = { marker: hospitalMarker, element: cardElement };
     cardElement.classList.add('selected');
     selectedHospitalId = placeId;
-
-    // 지도 중심 이동
     map.setCenter(position);
     map.setLevel(3);
 }
 
 // ==========================================
-// 근처 병원 검색 (키워드: 병원)
+// 근처 병원 검색 (현재 선택 환자 좌표 기준)
 // ==========================================
 function searchHospitals() {
     const listEl = document.getElementById('hospitalList');
     const loadingEl = document.getElementById('hospitalLoading');
+    if (!listEl) return;
 
     if (typeof kakao.maps.services === 'undefined' || !kakao.maps.services.Places) {
-        loadingEl.textContent = '병원 검색 서비스를 사용할 수 없습니다.';
+        if (loadingEl) loadingEl.textContent = '병원 검색 서비스를 사용할 수 없습니다.';
         return;
     }
 
     places = new kakao.maps.services.Places();
-    const center = new kakao.maps.LatLng(MAP_COORDS.lat, MAP_COORDS.lng);
+    const coords = getCurrentCoords();
+    const center = new kakao.maps.LatLng(coords.lat, coords.lng);
 
     places.keywordSearch('병원', function (data, status) {
         if (loadingEl) loadingEl.remove();
@@ -190,11 +362,9 @@ function searchHospitals() {
                 (addr ? '<div class="hospital-address">' + escapeHtml(addr) + '</div>' : '') +
                 (tel ? '<div class="hospital-tel"><a href="tel:' + escapeHtml(tel) + '">' + escapeHtml(tel) + '</a></div>' : '');
 
-            // 클릭 이벤트: 마커 토글
             card.addEventListener('click', function () {
                 toggleHospitalMarker(place, card);
             });
-            
             listEl.appendChild(card);
         });
     }, {

@@ -20,7 +20,17 @@
     </nav>
 
     <div class="main_wrap map-page-wrap">
+        <!-- 환자별 탭 (등록 환자 1명 이상일 때 표시) -->
+        <div id="patientTabsWrap" class="patient-tabs-wrap hidden">
+            <div id="patientTabs" class="patient-tabs" role="tablist"></div>
+        </div>
+        <!-- 환자 없음 안내 (등록 환자 0명) -->
+        <div id="mapNoPatients" class="map-no-patients hidden">
+            <p>등록된 환자가 없습니다.</p>
+            <p class="map-no-patients-hint">프로필에서 환자를 등록한 후 지도를 이용해 주세요.</p>
+        </div>
         <!-- 현재 위치 표시 카드 -->
+        <div id="mapContentArea" class="map-content-area">
         <div class="map-info-card">
             <p class="map-info-label">현재 위치</p>
             <p class="map-info-address" id="mapAddress">로딩 중...</p>
@@ -36,6 +46,7 @@
                 <p class="hospital-loading" id="hospitalLoading">병원 목록을 불러오는 중...</p>
             </div>
         </section>
+        </div>
     </div>
 
     <!-- 하단 네비게이션 바 -->

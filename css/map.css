@@ -5,6 +5,66 @@
     padding-bottom: 96px;
 }
 
+/* 환자별 탭 */
+.patient-tabs-wrap {
+    margin-bottom: 16px;
+}
+.patient-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.patient-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+.patient-tab {
+    flex: 0 0 auto;
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--text-light);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+}
+.patient-tab:hover {
+    border-color: var(--primary-light);
+    color: var(--text-dark);
+}
+.patient-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* 환자 없음 안내 */
+.map-no-patients {
+    text-align: center;
+    padding: 48px 24px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.map-no-patients p {
+    font-size: 16px;
+    color: var(--text-dark);
+    margin: 0 0 8px 0;
+}
+.map-no-patients-hint {
+    font-size: 13px !important;
+    color: var(--text-light) !important;
+}
+.map-content-area {
+    /* 지도/병원 영역 래퍼 */
+}
+
 .mobile-nav .back-btn {
     width: 40px;
     height: 40px;
