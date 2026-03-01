@@ -88,7 +88,7 @@ const allowedOrigins = [
     'http://localhost:5500',
     'http://127.0.0.1:5500',
     'http://mckydot.github.io',
-    'https://mckydot.github.io/'
+    'https://mckydot.github.io'
 ];
 if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
     allowedOrigins.push(process.env.FRONTEND_URL);
