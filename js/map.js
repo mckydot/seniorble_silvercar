@@ -11,7 +11,7 @@
 // ==========================================
 // 설정 및 전역 변수
 // ==========================================
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 const USER_KEY = 'seniorble_user';
 const TOKEN_KEY = 'seniorble_token';
 

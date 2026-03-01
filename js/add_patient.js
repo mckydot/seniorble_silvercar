@@ -20,7 +20,7 @@
 // ==========================================
 
 // API 서버 주소 (실제 배포 시 환경에 맞게 변경)
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 
 // DOM 요소 참조
 let form;

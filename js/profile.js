@@ -15,7 +15,7 @@
 // ==========================================
 
 // API 서버 주소
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 
 // 로컬 스토리지 키
 const USER_KEY = 'seniorble_user';

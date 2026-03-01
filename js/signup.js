@@ -15,16 +15,8 @@
 // 전역 변수 및 설정
 // ==========================================
 
-// API 서버 주소 (실제 배포 시 환경에 맞게 변경)
-const API_BASE_URL = (() => {
-    if (typeof window !== 'undefined' && window.location.origin) {
-        const origin = window.location.origin;
-        if (origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
-            return 'http://localhost:8000';
-        }
-    }
-    return 'http://localhost:8000';
-})();
+// API 서버 주소 (Render 배포)
+const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 
 // DOM 요소 참조
 let form;
@@ -260,7 +252,7 @@ async function handleSubmit(e) {
     } catch (error) {
         // 네트워크 에러 또는 기타 예외 처리
         console.error('회원가입 요청 중 에러 발생:', error);
-        showError('서버와 통신 중 오류가 발생했습니다.\n서버가 실행 중인지 확인해주세요.\n(http://localhost:8000)');
+        showError('서버와 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.');
         
     } finally {
         // 로딩 숨김

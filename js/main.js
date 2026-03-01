@@ -15,7 +15,7 @@
 // ==========================================
 
 // API 서버 주소 (프로필·환자 목록과 동일)
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 
 // ==========================================
 // 좌표 설정 (원하는 위도·경도로 변경)
