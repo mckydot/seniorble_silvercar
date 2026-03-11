@@ -726,7 +726,6 @@ process.on('SIGINT', () => {
  */
 
 const nodemailer = require('nodemailer');
-const crypto = require('crypto');
 
 // 이메일 전송 설정
 const transporter = nodemailer.createTransport({
