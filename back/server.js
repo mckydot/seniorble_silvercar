@@ -708,3 +708,359 @@ process.on('SIGINT', () => {
     console.log('⏹️  SIGINT 신호 수신 (Ctrl+C) - 서버 종료 중...');
     process.exit(0);
 });
+
+/**
+ * ==========================================
+ * 이메일 인증 기능 추가
+ * ==========================================
+ * 
+ * 필요한 패키지 설치:
+ * npm install nodemailer
+ * 
+ * .env 파일에 추가:
+ * EMAIL_HOST=smtp.gmail.com
+ * EMAIL_PORT=587
+ * EMAIL_USER=your-email@gmail.com
+ * EMAIL_PASSWORD=your-app-password
+ * EMAIL_FROM=Seniorble <noreply@seniorble.com>
+ */
+
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+// 이메일 전송 설정
+const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: process.env.EMAIL_PORT || 587,
+    secure: false,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+    }
+});
+
+// 이메일 인증 코드 생성 (6자리 숫자)
+function generateVerificationCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// 이메일 인증 코드 발송
+async function sendVerificationEmail(email, code) {
+    const mailOptions = {
+        from: process.env.EMAIL_FROM || 'Seniorble <noreply@seniorble.com>',
+        to: email,
+        subject: '[Seniorble] 이메일 인증 코드',
+        html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                    .logo { text-align: center; font-size: 32px; font-weight: 700; color: #2D5F5D; margin-bottom: 30px; }
+                    .code-box { background: #FAF8F3; border: 2px solid #2D5F5D; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
+                    .code { font-size: 36px; font-weight: 700; color: #2D5F5D; letter-spacing: 8px; }
+                    .notice { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
+                    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="logo">Seniorble</div>
+                    <h2 style="color: #1A1A1A; margin-bottom: 20px;">이메일 인증 코드</h2>
+                    <p style="color: #666; line-height: 1.6;">
+                        안녕하세요,<br>
+                        Seniorble 회원가입을 위한 인증 코드를 보내드립니다.
+                    </p>
+                    <div class="code-box">
+                        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">인증 코드</div>
+                        <div class="code">${code}</div>
+                    </div>
+                    <p class="notice">
+                        ※ 본 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
+                        ※ 본인이 요청하지 않았다면 이 메일을 무시하세요.
+                    </p>
+                    <div class="footer">
+                        본 메일은 발신 전용입니다.<br>
+                        © 2024 Seniorble. All rights reserved.
+                    </div>
+                </div>
+            </body>
+            </html>
+        `
+    };
+
+    await transporter.sendMail(mailOptions);
+}
+
+// ==========================================
+// 이메일 인증 코드 발송 API
+// ==========================================
+app.post('/send-verification-code',
+    authLimiter,
+    [body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail()],
+    asyncHandler(async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '입력값이 올바르지 않습니다.',
+                errors: errors.array().map(err => err.msg)
+            });
+        }
+
+        const { email } = req.body;
+        console.log('📧 이메일 인증 코드 발송 요청:', email);
+
+        // 이미 가입된 이메일인지 확인
+        const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .single();
+
+        if (existingUser) {
+            return res.status(409).json({
+                success: false,
+                message: '이미 가입된 이메일입니다.'
+            });
+        }
+
+        // 인증 코드 생성
+        const code = generateVerificationCode();
+        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+        // DB에 인증 코드 저장 (10분 유효)
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분 후
+        
+        // 기존 인증 코드 삭제 후 새로 저장
+        await supabase
+            .from('email_verifications')
+            .delete()
+            .eq('email', email);
+
+        const { error: insertError } = await supabase
+            .from('email_verifications')
+            .insert([{
+                email,
+                code_hash: codeHash,
+                expires_at: expiresAt.toISOString(),
+                verified: false
+            }]);
+
+        if (insertError) {
+            console.error('❌ 인증 코드 저장 실패:', insertError);
+            return res.status(500).json({
+                success: false,
+                message: '서버 오류가 발생했습니다.'
+            });
+        }
+
+        // 이메일 발송
+        try {
+            await sendVerificationEmail(email, code);
+            console.log('✅ 이메일 인증 코드 발송 완료:', email);
+            
+            res.status(200).json({
+                success: true,
+                message: '인증 코드가 발송되었습니다. 이메일을 확인해주세요.',
+                expiresIn: 600 // 초 단위 (10분)
+            });
+        } catch (emailError) {
+            console.error('❌ 이메일 발송 실패:', emailError);
+            return res.status(500).json({
+                success: false,
+                message: '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
+            });
+        }
+    })
+);
+
+// ==========================================
+// 이메일 인증 코드 확인 API
+// ==========================================
+app.post('/verify-email-code',
+    authLimiter,
+    [
+        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
+        body('code').isLength({ min: 6, max: 6 }).withMessage('인증 코드는 6자리입니다.')
+    ],
+    asyncHandler(async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '입력값이 올바르지 않습니다.'
+            });
+        }
+
+        const { email, code } = req.body;
+        console.log('🔍 이메일 인증 코드 확인:', email);
+
+        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+        // DB에서 인증 코드 조회
+        const { data: verification, error } = await supabase
+            .from('email_verifications')
+            .select('*')
+            .eq('email', email)
+            .eq('code_hash', codeHash)
+            .single();
+
+        if (error || !verification) {
+            return res.status(400).json({
+                success: false,
+                message: '인증 코드가 일치하지 않습니다.'
+            });
+        }
+
+        // 만료 확인
+        if (new Date(verification.expires_at) < new Date()) {
+            return res.status(400).json({
+                success: false,
+                message: '인증 코드가 만료되었습니다. 다시 요청해주세요.'
+            });
+        }
+
+        // 이미 인증됨
+        if (verification.verified) {
+            return res.status(400).json({
+                success: false,
+                message: '이미 인증된 코드입니다.'
+            });
+        }
+
+        // 인증 완료 처리
+        await supabase
+            .from('email_verifications')
+            .update({ verified: true })
+            .eq('email', email)
+            .eq('code_hash', codeHash);
+
+        console.log('✅ 이메일 인증 완료:', email);
+
+        res.status(200).json({
+            success: true,
+            message: '이메일 인증이 완료되었습니다.'
+        });
+    })
+);
+
+// ==========================================
+// 회원가입 API 수정 (이메일 인증 확인 추가)
+// ==========================================
+// 기존 /signup 엔드포인트 수정
+app.post('/signup',
+    authLimiter,
+    [
+        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
+        body('password')
+            .isString()
+            .custom((pw) => passwordMeetsPolicy(pw))
+            .withMessage('비밀번호는 12~72자이며 대문자/소문자/숫자/특수문자를 각각 1개 이상 포함해야 합니다.'),
+        body('name').trim().isLength({ min: 2, max: 50 }).withMessage('이름은 2~50자여야 합니다.').escape(),
+        body('phone').matches(/^010-\d{4}-\d{4}$/).withMessage('올바른 전화번호 형식이 아닙니다.')
+    ],
+    asyncHandler(async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '입력값이 올바르지 않습니다.',
+                errors: errors.array().map(err => err.msg)
+            });
+        }
+
+        const { email, password, name, phone } = req.body;
+        console.log(`📝 회원가입 시도`);
+
+        // ⭐ 이메일 인증 확인
+        const { data: verification } = await supabase
+            .from('email_verifications')
+            .select('verified')
+            .eq('email', email)
+            .single();
+
+        if (!verification || !verification.verified) {
+            return res.status(400).json({
+                success: false,
+                message: '이메일 인증이 완료되지 않았습니다.'
+            });
+        }
+
+        // 이메일 중복 체크
+        const { data: existingUser, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('❌ 이메일 중복 체크 중 에러:', checkError);
+            return res.status(500).json({
+                success: false,
+                message: '서버 오류가 발생했습니다.'
+            });
+        }
+
+        if (existingUser) {
+            console.log('⚠️ 회원가입 거절(중복 가능)');
+            return res.status(409).json({
+                success: false,
+                message: '회원가입에 실패했습니다.'
+            });
+        }
+
+        // 비밀번호 해싱
+        const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+        console.log('🔒 비밀번호 해싱 완료');
+
+        // 사용자 생성
+        const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert([{
+                email,
+                password_hash: passwordHash,
+                name,
+                phone
+            }])
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error('❌ 사용자 생성 중 에러:', insertError);
+            if (insertError.code === '23505') {
+                return res.status(409).json({
+                    success: false,
+                    message: '이미 가입된 이메일입니다.'
+                });
+            }
+            return res.status(500).json({
+                success: false,
+                message: '회원가입 처리 중 오류가 발생했습니다.'
+            });
+        }
+
+        // 인증 기록 삭제
+        await supabase
+            .from('email_verifications')
+            .delete()
+            .eq('email', email);
+
+        console.log('✅ 회원가입 성공:', newUser.id);
+
+        res.status(201).json({
+            success: true,
+            message: '회원가입이 완료되었습니다.',
+            user: {
+                id: newUser.id,
+                email: newUser.email,
+                name: newUser.name,
+                phone: newUser.phone,
+                role: 'guardian',
+                created_at: newUser.created_at
+            }
+        });
+    })
+);

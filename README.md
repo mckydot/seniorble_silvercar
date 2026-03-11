@@ -261,6 +261,109 @@ const API_BASE_URL = 'http://localhost:8000';
 - [ ] 센서 데이터 수신 API
 - [ ] 낙상 감지 알림 API
 
+
+---
+# 이메일 인증 기능 설정 가이드
+
+## 1. 백엔드 패키지 설치
+
+```bash
+cd back
+npm install nodemailer
+```
+
+## 2. Gmail 앱 비밀번호 생성 (권장)
+
+### Gmail 설정:
+1. Google 계정 관리 → 보안
+2. 2단계 인증 활성화
+3. 앱 비밀번호 생성
+   - 앱 선택: 메일
+   - 기기 선택: 기타 (사용자 지정 이름: Seniorble)
+4. 생성된 16자리 비밀번호 복사
+
+## 3. Render 환경변수 설정
+
+Render 대시보드 → Environment 탭에 추가:
+
+```
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-16-digit-app-password
+EMAIL_FROM=Seniorble <noreply@seniorble.com>
+```
+
+**다른 이메일 서비스 사용 시:**
+
+### Naver
+```
+EMAIL_HOST=smtp.naver.com
+EMAIL_PORT=587
+EMAIL_USER=your-id@naver.com
+EMAIL_PASSWORD=your-password
+```
+
+### Daum
+```
+EMAIL_HOST=smtp.daum.net
+EMAIL_PORT=465
+EMAIL_USER=your-id@daum.net
+EMAIL_PASSWORD=your-password
+```
+
+## 4. Supabase 테이블 생성
+
+Supabase Dashboard → SQL Editor에서 `email-verification-table.sql` 실행
+
+## 5. 파일 구조
+
+```
+back/
+├── server.js (email-verification-backend.js 내용 통합)
+├── package.json
+└── .env
+
+front/
+├── signup.html (email-verification-html 내용 적용)
+├── js/
+│   └── signup.js (signup-with-email-verification.js로 교체)
+└── css/
+    └── signup.css (email-verification-styles.css 추가)
+```
+
+## 6. package.json 의존성
+
+```json
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1",
+    "helmet": "^7.1.0",
+    "cookie-parser": "^1.4.6",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "@supabase/supabase-js": "^2.39.0",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "nodemailer": "^6.9.7"
+  }
+}
+```
+
+## 7. 테스트 순서
+
+1. 로컬에서 백엔드 실행
+2. 이메일 발송 테스트
+3. Render 배포
+4. 프론트엔드에서 전체 플로우 테스트
+
+## 8. 주의사항
+
+- Gmail은 하루 최대 500통 제한
+- 스팸 방지: 발송 간격 5초 이상 권장
+- 프로덕션에서는 SendGrid, AWS SES 등 전문 서비스 권장
 ---
 #개발하면서 겪은 어려운점 및 해결방법
 

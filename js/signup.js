@@ -1,100 +1,225 @@
 /**
  * ==========================================
- * 보호자 회원가입 JavaScript
+ * 보호자 회원가입 JavaScript (이메일 인증 포함)
  * ==========================================
- * 
- * 주요 기능:
- * 1. 입력값 실시간 검증 (비밀번호 일치 확인)
- * 2. 전화번호 자동 포맷팅
- * 3. 폼 제출 시 유효성 검사
- * 4. FastAPI 서버로 회원가입 요청 전송
- * 5. 성공 시 로그인 페이지로 이동
  */
 
-// ==========================================
-// 전역 변수 및 설정
-// ==========================================
-
-// API 서버 주소 (Render 배포)
 const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 
-// DOM 요소 참조
 let form;
-let passwordInput;
-let passwordConfirmInput;
-let passwordMatchMessage;
-let phoneInput;
-let errorMessage;
-let loadingOverlay;
-let submitBtn;
+let emailInput;
+let emailVerifyBtn;
+let verificationCodeSection;
+let verificationCodeInput;
+let verifyCodeBtn;
+let emailVerified = false;
+let verificationTimer = null;
+let timerSeconds = 0;
 
-// ==========================================
-// 페이지 로드 시 초기화
-// ==========================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('보호자 회원가입 페이지 로드 완료');
     
-    // DOM 요소 가져오기
     form = document.getElementById('signupForm');
-    passwordInput = document.getElementById('password');
-    passwordConfirmInput = document.getElementById('passwordConfirm');
-    passwordMatchMessage = document.getElementById('passwordMatchMessage');
-    phoneInput = document.getElementById('phone');
-    errorMessage = document.getElementById('errorMessage');
-    loadingOverlay = document.getElementById('loadingOverlay');
-    submitBtn = document.getElementById('submitBtn');
+    emailInput = document.getElementById('email');
+    emailVerifyBtn = document.getElementById('emailVerifyBtn');
+    verificationCodeSection = document.getElementById('verificationCodeSection');
+    verificationCodeInput = document.getElementById('verificationCode');
+    verifyCodeBtn = document.getElementById('verifyCodeBtn');
     
-    // 이벤트 리스너 등록
     initEventListeners();
 });
 
-// ==========================================
-// 이벤트 리스너 초기화
-// ==========================================
 function initEventListeners() {
-    // 폼 제출 이벤트
     form.addEventListener('submit', handleSubmit);
     
-    // 비밀번호 확인 실시간 검증
-    passwordConfirmInput.addEventListener('input', checkPasswordMatch);
-    passwordInput.addEventListener('input', checkPasswordMatch);
+    // 이메일 인증 버튼
+    emailVerifyBtn.addEventListener('click', sendVerificationCode);
     
-    // 전화번호 자동 포맷팅
-    phoneInput.addEventListener('input', formatPhoneNumber);
+    // 인증 코드 확인 버튼
+    verifyCodeBtn.addEventListener('click', verifyEmailCode);
+    
+    // 비밀번호 확인
+    document.getElementById('passwordConfirm').addEventListener('input', checkPasswordMatch);
+    document.getElementById('password').addEventListener('input', checkPasswordMatch);
+    
+    // 전화번호 포맷팅
+    document.getElementById('phone').addEventListener('input', formatPhoneNumber);
+    
+    // 이메일 변경 시 인증 상태 초기화
+    emailInput.addEventListener('input', function() {
+        if (emailVerified) {
+            emailVerified = false;
+            verificationCodeSection.classList.add('hidden');
+            emailVerifyBtn.disabled = false;
+            emailVerifyBtn.textContent = '인증 코드 발송';
+            document.getElementById('emailVerifiedMessage').classList.add('hidden');
+        }
+    });
 }
 
 // ==========================================
-// 비밀번호 일치 여부 확인
+// 이메일 인증 코드 발송
 // ==========================================
-function checkPasswordMatch() {
-    const password = passwordInput.value;
-    const passwordConfirm = passwordConfirmInput.value;
+async function sendVerificationCode() {
+    const email = emailInput.value.trim();
     
-    // 비밀번호 확인 필드가 비어있으면 메시지 표시 안함
-    if (passwordConfirm === '') {
-        passwordMatchMessage.textContent = '';
-        passwordMatchMessage.className = 'input-help';
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showError('올바른 이메일 형식을 입력해주세요.');
         return;
     }
     
-    // 비밀번호 일치 여부 확인
-    if (password === passwordConfirm) {
-        passwordMatchMessage.textContent = '✓ 비밀번호가 일치합니다';
-        passwordMatchMessage.className = 'input-help success';
-    } else {
-        passwordMatchMessage.textContent = '✗ 비밀번호가 일치하지 않습니다';
-        passwordMatchMessage.className = 'input-help error';
+    emailVerifyBtn.disabled = true;
+    emailVerifyBtn.textContent = '발송 중...';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/send-verification-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // 인증 코드 입력 영역 표시
+            verificationCodeSection.classList.remove('hidden');
+            verificationCodeInput.focus();
+            
+            // 타이머 시작 (10분)
+            startTimer(data.expiresIn || 600);
+            
+            showSuccess('인증 코드가 발송되었습니다. 이메일을 확인해주세요.');
+        } else {
+            showError(data.message || '인증 코드 발송에 실패했습니다.');
+            emailVerifyBtn.disabled = false;
+            emailVerifyBtn.textContent = '인증 코드 발송';
+        }
+    } catch (error) {
+        console.error('인증 코드 발송 오류:', error);
+        showError('서버와 통신 중 오류가 발생했습니다.');
+        emailVerifyBtn.disabled = false;
+        emailVerifyBtn.textContent = '인증 코드 발송';
     }
 }
 
 // ==========================================
-// 전화번호 자동 포맷팅 (010-1234-5678)
+// 이메일 인증 코드 확인
+// ==========================================
+async function verifyEmailCode() {
+    const email = emailInput.value.trim();
+    const code = verificationCodeInput.value.trim();
+    
+    if (code.length !== 6) {
+        showError('인증 코드는 6자리입니다.');
+        return;
+    }
+    
+    verifyCodeBtn.disabled = true;
+    verifyCodeBtn.textContent = '확인 중...';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/verify-email-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, code })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            emailVerified = true;
+            
+            // 타이머 중지
+            if (verificationTimer) {
+                clearInterval(verificationTimer);
+            }
+            
+            // UI 업데이트
+            verificationCodeSection.classList.add('hidden');
+            document.getElementById('emailVerifiedMessage').classList.remove('hidden');
+            emailInput.disabled = true;
+            emailVerifyBtn.style.display = 'none';
+            
+            showSuccess('이메일 인증이 완료되었습니다!');
+        } else {
+            showError(data.message || '인증 코드가 일치하지 않습니다.');
+            verifyCodeBtn.disabled = false;
+            verifyCodeBtn.textContent = '확인';
+        }
+    } catch (error) {
+        console.error('인증 코드 확인 오류:', error);
+        showError('서버와 통신 중 오류가 발생했습니다.');
+        verifyCodeBtn.disabled = false;
+        verifyCodeBtn.textContent = '확인';
+    }
+}
+
+// ==========================================
+// 타이머 시작
+// ==========================================
+function startTimer(seconds) {
+    timerSeconds = seconds;
+    
+    const timerDisplay = document.getElementById('timerDisplay');
+    timerDisplay.classList.remove('hidden');
+    
+    updateTimerDisplay();
+    
+    verificationTimer = setInterval(() => {
+        timerSeconds--;
+        
+        if (timerSeconds <= 0) {
+            clearInterval(verificationTimer);
+            timerDisplay.textContent = '인증 시간이 만료되었습니다. 다시 발송해주세요.';
+            timerDisplay.style.color = 'var(--danger)';
+            emailVerifyBtn.disabled = false;
+            emailVerifyBtn.textContent = '재발송';
+        } else {
+            updateTimerDisplay();
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timerSeconds / 60);
+    const seconds = timerSeconds % 60;
+    document.getElementById('timerDisplay').textContent = 
+        `남은 시간: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// ==========================================
+// 비밀번호 일치 확인
+// ==========================================
+function checkPasswordMatch() {
+    const password = document.getElementById('password').value;
+    const passwordConfirm = document.getElementById('passwordConfirm').value;
+    const message = document.getElementById('passwordMatchMessage');
+    
+    if (passwordConfirm === '') {
+        message.textContent = '';
+        message.className = 'input-help';
+        return;
+    }
+    
+    if (password === passwordConfirm) {
+        message.textContent = '✓ 비밀번호가 일치합니다';
+        message.className = 'input-help success';
+    } else {
+        message.textContent = '✗ 비밀번호가 일치하지 않습니다';
+        message.className = 'input-help error';
+    }
+}
+
+// ==========================================
+// 전화번호 포맷팅
 // ==========================================
 function formatPhoneNumber(e) {
-    // 숫자만 추출
     let value = e.target.value.replace(/[^0-9]/g, '');
     
-    // 하이픈 자동 추가
     if (value.length > 3 && value.length <= 7) {
         value = value.slice(0, 3) + '-' + value.slice(3);
     } else if (value.length > 7) {
@@ -105,50 +230,62 @@ function formatPhoneNumber(e) {
 }
 
 // ==========================================
-// 에러 메시지 표시 (문자열 또는 배열 가능)
+// 폼 제출
 // ==========================================
-function showError(message) {
-    const text = Array.isArray(message) ? message.join('\n') : String(message);
-    errorMessage.textContent = text;
-    errorMessage.classList.remove('hidden');
-    errorMessage.style.whiteSpace = 'pre-line';
-    errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => errorMessage.classList.add('hidden'), 8000);
+async function handleSubmit(e) {
+    e.preventDefault();
+    
+    // 이메일 인증 확인
+    if (!emailVerified) {
+        showError('이메일 인증을 완료해주세요.');
+        return;
+    }
+    
+    const formData = {
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        password: document.getElementById('password').value,
+        passwordConfirm: document.getElementById('passwordConfirm').value
+    };
+    
+    if (!validateForm(formData)) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                password: formData.password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 201 && data.success) {
+            alert(`회원가입이 완료되었습니다!\n\n환영합니다, ${formData.name}님!\n로그인 페이지로 이동합니다.`);
+            window.location.href = 'login.html';
+        } else {
+            showError(data.message || '회원가입에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('회원가입 오류:', error);
+        showError('서버와 통신 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
 }
 
 // ==========================================
-// 로딩 오버레이 표시/숨김
-// ==========================================
-function showLoading() {
-    loadingOverlay.classList.remove('hidden');
-    submitBtn.disabled = true;
-}
-
-function hideLoading() {
-    loadingOverlay.classList.add('hidden');
-    submitBtn.disabled = false;
-}
-
-// 서버와 동일한 비밀번호 정책 (12~72자, 대/소/숫/특수 각 1개 이상)
-function passwordMeetsPolicy(password) {
-    if (typeof password !== 'string') return false;
-    if (password.length < 12 || password.length > 72) return false;
-    return /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
-}
-
-function getPasswordPolicyErrors(password) {
-    const err = [];
-    if (password.length < 12) err.push('비밀번호는 12자 이상이어야 합니다.');
-    else if (password.length > 72) err.push('비밀번호는 72자 이하여야 합니다.');
-    if (!/[a-z]/.test(password)) err.push('소문자를 1개 이상 포함해주세요.');
-    if (!/[A-Z]/.test(password)) err.push('대문자를 1개 이상 포함해주세요.');
-    if (!/\d/.test(password)) err.push('숫자를 1개 이상 포함해주세요.');
-    if (!/[^A-Za-z0-9]/.test(password)) err.push('특수문자를 1개 이상 포함해주세요.');
-    return err;
-}
-
-// ==========================================
-// 입력값 유효성 검증
+// 유효성 검증
 // ==========================================
 function validateForm(formData) {
     const { name, email, phone, password, passwordConfirm } = formData;
@@ -157,7 +294,7 @@ function validateForm(formData) {
     if (name.trim().length < 2) errors.push('이름은 2자 이상 입력해주세요.');
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) errors.push('올바른 이메일 형식을 입력해주세요.');
-    if (!/^010-\d{4}-\d{4}$/.test(phone)) errors.push('전화번호 형식이 올바르지 않습니다. (010-XXXX-XXXX)');
+    if (!/^010-\d{4}-\d{4}$/.test(phone)) errors.push('전화번호 형식이 올바르지 않습니다.');
     
     const pwErrors = getPasswordPolicyErrors(password);
     if (pwErrors.length) errors.push(...pwErrors);
@@ -174,149 +311,45 @@ function validateForm(formData) {
     return true;
 }
 
-// ==========================================
-// 폼 제출 처리
-// ==========================================
-async function handleSubmit(e) {
-    // 기본 폼 제출 동작 방지 (페이지 새로고침 방지)
-    e.preventDefault();
-    
-    console.log('회원가입 폼 제출 시작');
-    
-    // 폼 데이터 수집
-    const formData = {
-        name: document.getElementById('name').value.trim(),
-        email: document.getElementById('email').value.trim(),
-        phone: document.getElementById('phone').value.trim(),
-        password: document.getElementById('password').value,
-        passwordConfirm: document.getElementById('passwordConfirm').value
-    };
-    
-    console.log('수집된 폼 데이터:', { ...formData, password: '***', passwordConfirm: '***' });
-    
-    // 입력값 검증
-    if (!validateForm(formData)) {
-        console.log('유효성 검증 실패');
-        return;
-    }
-    
-    // 로딩 표시
-    showLoading();
-    
-    try {
-        // Node.js 백엔드 서버로 회원가입 요청
-        console.log('서버로 회원가입 요청 전송...');
-        
-        const response = await fetch(`${API_BASE_URL}/signup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone,
-                password: formData.password
-            })
-        });
-        
-        const data = await response.json().catch(() => ({ success: false, message: '응답을 읽을 수 없습니다.' }));
-        console.log('서버 응답 상태:', response.status, data);
-        
-        if (response.status === 201 && data.success) {
-            alert(`회원가입이 완료되었습니다!\n\n환영합니다, ${formData.name}님!\n로그인 페이지로 이동합니다.`);
-            window.location.href = 'login.html';
-            return;
-        }
-        
-        if (response.status === 409) {
-            showError(data.message || '이미 가입된 이메일입니다.');
-            return;
-        }
-        
-        if (response.status === 400) {
-            if (data.errors && data.errors.length > 0) {
-                showError(data.errors);
-            } else {
-                showError(data.message || '입력값이 올바르지 않습니다.');
-            }
-            return;
-        }
-        
-        if (response.status >= 500) {
-            showError(data.message || '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-            return;
-        }
-        
-        showError(data.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
-        
-    } catch (error) {
-        // 네트워크 에러 또는 기타 예외 처리
-        console.error('회원가입 요청 중 에러 발생:', error);
-        showError('서버와 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.');
-        
-    } finally {
-        // 로딩 숨김
-        hideLoading();
-    }
+function getPasswordPolicyErrors(password) {
+    const err = [];
+    if (password.length < 12) err.push('비밀번호는 12자 이상이어야 합니다.');
+    else if (password.length > 72) err.push('비밀번호는 72자 이하여야 합니다.');
+    if (!/[a-z]/.test(password)) err.push('소문자를 1개 이상 포함해주세요.');
+    if (!/[A-Z]/.test(password)) err.push('대문자를 1개 이상 포함해주세요.');
+    if (!/\d/.test(password)) err.push('숫자를 1개 이상 포함해주세요.');
+    if (!/[^A-Za-z0-9]/.test(password)) err.push('특수문자를 1개 이상 포함해주세요.');
+    return err;
 }
 
 // ==========================================
-// 유틸리티 함수들
+// UI 헬퍼 함수
 // ==========================================
-
-/**
- * 모바일에서 viewport height 조정
- * (모바일 브라우저 주소창 표시/숨김 시 레이아웃 깨짐 방지)
- */
-function setVH() {
-    let vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+function showError(message) {
+    const text = Array.isArray(message) ? message.join('\n') : String(message);
+    const errorMessage = document.getElementById('errorMessage');
+    errorMessage.textContent = text;
+    errorMessage.classList.remove('hidden');
+    errorMessage.style.whiteSpace = 'pre-line';
+    errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => errorMessage.classList.add('hidden'), 8000);
 }
 
-// 초기 실행 및 리사이즈 이벤트 등록
-setVH();
-window.addEventListener('resize', setVH);
+function showSuccess(message) {
+    const successMessage = document.getElementById('successMessage');
+    if (successMessage) {
+        successMessage.textContent = message;
+        successMessage.classList.remove('hidden');
+        setTimeout(() => successMessage.classList.add('hidden'), 5000);
+    }
+}
 
-// ==========================================
-// 개발 참고사항
-// ==========================================
-/**
- * Node.js 백엔드에서 받을 것으로 예상되는 요청/응답 형식:
- * 
- * POST /signup
- * Content-Type: application/json
- * 
- * Request Body:
- * {
- *   "name": "홍길동",
- *   "email": "hong@example.com",
- *   "phone": "010-1234-5678",
- *   "password": "securepassword123"
- * }
- * 
- * 성공 응답 (201 Created):
- * {
- *   "success": true,
- *   "message": "회원가입이 완료되었습니다.",
- *   "user": {
- *     "id": "uuid-string",
- *     "name": "홍길동",
- *     "email": "hong@example.com",
- *     "phone": "010-1234-5678",
- *     "created_at": "2024-01-01T00:00:00Z"
- *   }
- * }
- * 
- * 이메일 중복 (409 Conflict):
- * {
- *   "success": false,
- *   "message": "이미 가입된 이메일입니다."
- * }
- * 
- * 입력값 오류 (400 Bad Request):
- * {
- *   "success": false,
- *   "message": "입력값이 올바르지 않습니다.",
- *   "errors": ["비밀번호는 8자 이상이어야 합니다."]
- * }
- */
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    document.getElementById('submitBtn').disabled = true;
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('submitBtn').disabled = false;
+}
