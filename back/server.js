@@ -21,6 +21,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const { createClient } = require('@supabase/supabase-js');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('./utils/jwt');
@@ -172,7 +173,7 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 회원가입 (공개)
+// 회원가입 (공개, 이메일 인증 완료 필수)
 // ==========================================
 app.post('/signup',
     authLimiter,
@@ -186,86 +187,100 @@ app.post('/signup',
         body('phone').matches(/^010-\d{4}-\d{4}$/).withMessage('올바른 전화번호 형식이 아닙니다.')
     ],
     asyncHandler(async (req, res) => {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({
-                    success: false,
-                    message: '입력값이 올바르지 않습니다.',
-                    errors: errors.array().map(err => err.msg)
-                });
-            }
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: '입력값이 올바르지 않습니다.',
+                errors: errors.array().map(err => err.msg)
+            });
+        }
 
-            const { email, password, name, phone } = req.body;
-            console.log(`📝 회원가입 시도`);
+        const { email, password, name, phone } = req.body;
+        console.log(`📝 회원가입 시도`);
 
-            // 이메일 중복 체크
-            const { data: existingUser, error: checkError } = await supabase
-                .from('users')
-                .select('id')
-                .eq('email', email)
-                .single();
+        // 이메일 인증 완료 여부 확인
+        const { data: verification } = await supabase
+            .from('email_verifications')
+            .select('verified')
+            .eq('email', email)
+            .single();
 
-            if (checkError && checkError.code !== 'PGRST116') {
-                console.error('❌ 이메일 중복 체크 중 에러:', checkError);
-                return res.status(500).json({
-                    success: false,
-                    message: '서버 오류가 발생했습니다.'
-                });
-            }
+        if (!verification || !verification.verified) {
+            return res.status(400).json({
+                success: false,
+                message: '이메일 인증이 완료되지 않았습니다.'
+            });
+        }
 
-            if (existingUser) {
-                console.log('⚠️ 회원가입 거절(중복 가능)');
+        const { data: existingUser, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('❌ 이메일 중복 체크 중 에러:', checkError);
+            return res.status(500).json({
+                success: false,
+                message: '서버 오류가 발생했습니다.'
+            });
+        }
+
+        if (existingUser) {
+            return res.status(409).json({
+                success: false,
+                message: '회원가입에 실패했습니다.'
+            });
+        }
+
+        const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+        console.log('🔒 비밀번호 해싱 완료');
+
+        const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert([{
+                email,
+                password_hash: passwordHash,
+                name,
+                phone
+            }])
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error('❌ 사용자 생성 중 에러:', insertError);
+            if (insertError.code === '23505') {
                 return res.status(409).json({
                     success: false,
-                    message: '회원가입에 실패했습니다.'
+                    message: '이미 가입된 이메일입니다.'
                 });
             }
-
-            // 비밀번호 해싱
-            const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-            console.log('🔒 비밀번호 해싱 완료');
-
-            // 사용자 생성
-            const { data: newUser, error: insertError } = await supabase
-                .from('users')
-                .insert([{
-                    email,
-                    password_hash: passwordHash,
-                    name,
-                    phone
-                }])
-                .select()
-                .single();
-
-            if (insertError) {
-                console.error('❌ 사용자 생성 중 에러:', insertError);
-                if (insertError.code === '23505') {
-                    return res.status(409).json({
-                        success: false,
-                        message: '이미 가입된 이메일입니다.'
-                    });
-                }
-                return res.status(500).json({
-                    success: false,
-                    message: '회원가입 처리 중 오류가 발생했습니다. 입력값을 확인하거나 잠시 후 다시 시도해주세요.'
-                });
-            }
-
-            console.log('✅ 회원가입 성공:', newUser.id);
-
-            res.status(201).json({
-                success: true,
-                message: '회원가입이 완료되었습니다.',
-                user: {
-                    id: newUser.id,
-                    email: newUser.email,
-                    name: newUser.name,
-                    phone: newUser.phone,
-                    role: 'guardian',
-                    created_at: newUser.created_at
-                }
+            return res.status(500).json({
+                success: false,
+                message: '회원가입 처리 중 오류가 발생했습니다.'
             });
+        }
 
+        await supabase
+            .from('email_verifications')
+            .delete()
+            .eq('email', email);
+
+        console.log('✅ 회원가입 성공:', newUser.id);
+
+        res.status(201).json({
+            success: true,
+            message: '회원가입이 완료되었습니다.',
+            user: {
+                id: newUser.id,
+                email: newUser.email,
+                name: newUser.name,
+                phone: newUser.phone,
+                role: 'guardian',
+                created_at: newUser.created_at
+            }
+        });
     })
 );
 
@@ -641,96 +656,11 @@ app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (re
 });
 
 // ==========================================
-// 404 에러 핸들러
+// 이메일 인증 (nodemailer 설정 및 라우트)
 // ==========================================
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: '요청하신 엔드포인트를 찾을 수 없습니다.'
-    });
-});
-
-// ==========================================
-// 전역 에러 핸들러 (내부 정보 노출 방지)
-// ==========================================
-app.use((err, req, res, next) => {
-    // eslint-disable-line no-unused-vars
-    console.error('❌ 전역 에러:', err);
-    const status = Number.isInteger(err.status) ? err.status : 500;
-    res.status(status).json({
-        success: false,
-        message: status >= 500 ? '서버 오류가 발생했습니다.' : (err.publicMessage || '요청 처리에 실패했습니다.')
-    });
-});
-
-// ==========================================
-// 서버 시작
-// ==========================================
-app.listen(PORT, () => {
-    console.log('');
-    console.log('════════════════════════════════════════');
-    console.log('🚀 Seniorble 백엔드 서버 시작');
-    console.log('════════════════════════════════════════');
-    console.log(`📡 서버 주소: http://localhost:${PORT}`);
-    console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🗄️  데이터베이스: Supabase (PostgreSQL)`);
-    console.log(`🔐 인증 방식: JWT`);
-    console.log(`⏱️  토큰 만료: ${process.env.JWT_EXPIRES_IN || '1h'}`);
-    console.log('════════════════════════════════════════');
-    console.log('');
-    console.log('사용 가능한 엔드포인트:');
-    console.log('  [공개]');
-    console.log('  GET  /         - 서버 상태 확인');
-    console.log('  GET  /health   - 헬스체크');
-    console.log('  POST /signup   - 회원가입');
-    console.log('  POST /login    - 로그인 (JWT 발급)');
-    console.log('');
-    console.log('  [인증 필요]');
-    console.log('  GET  /auth/me     - 현재 사용자 정보');
-    console.log('  GET  /patients    - 환자 목록 (Guardian, 본인 등록만)');
-    console.log('  GET  /patients/:id - 단일 환자 조회 (본인만)');
-    console.log('  POST /patients    - 환자 등록 (Guardian)');
-    console.log('  PUT  /patients/:id - 환자 수정 (본인만)');
-    console.log('');
-});
-
-// ==========================================
-// 우아한 종료
-// ==========================================
-process.on('SIGTERM', () => {
-    console.log('');
-    console.log('⏹️  SIGTERM 신호 수신 - 서버 종료 중...');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('');
-    console.log('⏹️  SIGINT 신호 수신 (Ctrl+C) - 서버 종료 중...');
-    process.exit(0);
-});
-
-/**
- * ==========================================
- * 이메일 인증 기능 추가
- * ==========================================
- * 
- * 필요한 패키지 설치:
- * npm install nodemailer
- * 
- * .env 파일에 추가:
- * EMAIL_HOST=smtp.gmail.com
- * EMAIL_PORT=587
- * EMAIL_USER=your-email@gmail.com
- * EMAIL_PASSWORD=your-app-password
- * EMAIL_FROM=Seniorble <noreply@seniorble.com>
- */
-
-const nodemailer = require('nodemailer');
-
-// 이메일 전송 설정
-const transporter = nodemailer.createTransport({
+const emailTransporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
+    port: Number(process.env.EMAIL_PORT) || 587,
     secure: false,
     auth: {
         user: process.env.EMAIL_USER,
@@ -738,12 +668,10 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 이메일 인증 코드 생성 (6자리 숫자)
 function generateVerificationCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 이메일 인증 코드 발송
 async function sendVerificationEmail(email, code) {
     const mailOptions = {
         from: process.env.EMAIL_FROM || 'Seniorble <noreply@seniorble.com>',
@@ -789,13 +717,9 @@ async function sendVerificationEmail(email, code) {
             </html>
         `
     };
-
-    await transporter.sendMail(mailOptions);
+    await emailTransporter.sendMail(mailOptions);
 }
 
-// ==========================================
-// 이메일 인증 코드 발송 API
-// ==========================================
 app.post('/send-verification-code',
     authLimiter,
     [body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail()],
@@ -812,7 +736,6 @@ app.post('/send-verification-code',
         const { email } = req.body;
         console.log('📧 이메일 인증 코드 발송 요청:', email);
 
-        // 이미 가입된 이메일인지 확인
         const { data: existingUser } = await supabase
             .from('users')
             .select('id')
@@ -826,14 +749,10 @@ app.post('/send-verification-code',
             });
         }
 
-        // 인증 코드 생성
         const code = generateVerificationCode();
         const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-        // DB에 인증 코드 저장 (10분 유효)
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분 후
-        
-        // 기존 인증 코드 삭제 후 새로 저장
         await supabase
             .from('email_verifications')
             .delete()
@@ -856,15 +775,13 @@ app.post('/send-verification-code',
             });
         }
 
-        // 이메일 발송
         try {
             await sendVerificationEmail(email, code);
             console.log('✅ 이메일 인증 코드 발송 완료:', email);
-            
             res.status(200).json({
                 success: true,
                 message: '인증 코드가 발송되었습니다. 이메일을 확인해주세요.',
-                expiresIn: 600 // 초 단위 (10분)
+                expiresIn: 600
             });
         } catch (emailError) {
             console.error('❌ 이메일 발송 실패:', emailError);
@@ -876,9 +793,6 @@ app.post('/send-verification-code',
     })
 );
 
-// ==========================================
-// 이메일 인증 코드 확인 API
-// ==========================================
 app.post('/verify-email-code',
     authLimiter,
     [
@@ -899,7 +813,6 @@ app.post('/verify-email-code',
 
         const codeHash = crypto.createHash('sha256').update(code).digest('hex');
 
-        // DB에서 인증 코드 조회
         const { data: verification, error } = await supabase
             .from('email_verifications')
             .select('*')
@@ -914,7 +827,6 @@ app.post('/verify-email-code',
             });
         }
 
-        // 만료 확인
         if (new Date(verification.expires_at) < new Date()) {
             return res.status(400).json({
                 success: false,
@@ -922,7 +834,6 @@ app.post('/verify-email-code',
             });
         }
 
-        // 이미 인증됨
         if (verification.verified) {
             return res.status(400).json({
                 success: false,
@@ -930,7 +841,6 @@ app.post('/verify-email-code',
             });
         }
 
-        // 인증 완료 처리
         await supabase
             .from('email_verifications')
             .update({ verified: true })
@@ -938,7 +848,6 @@ app.post('/verify-email-code',
             .eq('code_hash', codeHash);
 
         console.log('✅ 이메일 인증 완료:', email);
-
         res.status(200).json({
             success: true,
             message: '이메일 인증이 완료되었습니다.'
@@ -947,119 +856,72 @@ app.post('/verify-email-code',
 );
 
 // ==========================================
-// 회원가입 API 수정 (이메일 인증 확인 추가)
+// 404 에러 핸들러
 // ==========================================
-// 기존 /signup 엔드포인트 수정
-app.post('/signup',
-    authLimiter,
-    [
-        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
-        body('password')
-            .isString()
-            .custom((pw) => passwordMeetsPolicy(pw))
-            .withMessage('비밀번호는 12~72자이며 대문자/소문자/숫자/특수문자를 각각 1개 이상 포함해야 합니다.'),
-        body('name').trim().isLength({ min: 2, max: 50 }).withMessage('이름은 2~50자여야 합니다.').escape(),
-        body('phone').matches(/^010-\d{4}-\d{4}$/).withMessage('올바른 전화번호 형식이 아닙니다.')
-    ],
-    asyncHandler(async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: '입력값이 올바르지 않습니다.',
-                errors: errors.array().map(err => err.msg)
-            });
-        }
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: '요청하신 엔드포인트를 찾을 수 없습니다.'
+    });
+});
 
-        const { email, password, name, phone } = req.body;
-        console.log(`📝 회원가입 시도`);
+// ==========================================
+// 전역 에러 핸들러 (내부 정보 노출 방지)
+// ==========================================
+app.use((err, req, res, next) => {
+    // eslint-disable-line no-unused-vars
+    console.error('❌ 전역 에러:', err);
+    const status = Number.isInteger(err.status) ? err.status : 500;
+    res.status(status).json({
+        success: false,
+        message: status >= 500 ? '서버 오류가 발생했습니다.' : (err.publicMessage || '요청 처리에 실패했습니다.')
+    });
+});
 
-        // ⭐ 이메일 인증 확인
-        const { data: verification } = await supabase
-            .from('email_verifications')
-            .select('verified')
-            .eq('email', email)
-            .single();
+// ==========================================
+// 서버 시작
+// ==========================================
+app.listen(PORT, () => {
+    console.log('');
+    console.log('════════════════════════════════════════');
+    console.log('🚀 Seniorble 백엔드 서버 시작');
+    console.log('════════════════════════════════════════');
+    console.log(`📡 서버 주소: http://localhost:${PORT}`);
+    console.log(`🌍 환경: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🗄️  데이터베이스: Supabase (PostgreSQL)`);
+    console.log(`🔐 인증 방식: JWT`);
+    console.log(`⏱️  토큰 만료: ${process.env.JWT_EXPIRES_IN || '1h'}`);
+    console.log('════════════════════════════════════════');
+    console.log('');
+    console.log('사용 가능한 엔드포인트:');
+    console.log('  [공개]');
+    console.log('  GET  /                     - 서버 상태 확인');
+    console.log('  GET  /health                - 헬스체크');
+    console.log('  POST /send-verification-code - 이메일 인증 코드 발송');
+    console.log('  POST /verify-email-code    - 이메일 인증 코드 확인');
+    console.log('  POST /signup               - 회원가입 (이메일 인증 후)');
+    console.log('  POST /login                - 로그인 (JWT 발급)');
+    console.log('');
+    console.log('  [인증 필요]');
+    console.log('  GET  /auth/me     - 현재 사용자 정보');
+    console.log('  GET  /patients    - 환자 목록 (Guardian, 본인 등록만)');
+    console.log('  GET  /patients/:id - 단일 환자 조회 (본인만)');
+    console.log('  POST /patients    - 환자 등록 (Guardian)');
+    console.log('  PUT  /patients/:id - 환자 수정 (본인만)');
+    console.log('');
+});
 
-        if (!verification || !verification.verified) {
-            return res.status(400).json({
-                success: false,
-                message: '이메일 인증이 완료되지 않았습니다.'
-            });
-        }
+// ==========================================
+// 우아한 종료
+// ==========================================
+process.on('SIGTERM', () => {
+    console.log('');
+    console.log('⏹️  SIGTERM 신호 수신 - 서버 종료 중...');
+    process.exit(0);
+});
 
-        // 이메일 중복 체크
-        const { data: existingUser, error: checkError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', email)
-            .single();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-            console.error('❌ 이메일 중복 체크 중 에러:', checkError);
-            return res.status(500).json({
-                success: false,
-                message: '서버 오류가 발생했습니다.'
-            });
-        }
-
-        if (existingUser) {
-            console.log('⚠️ 회원가입 거절(중복 가능)');
-            return res.status(409).json({
-                success: false,
-                message: '회원가입에 실패했습니다.'
-            });
-        }
-
-        // 비밀번호 해싱
-        const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-        console.log('🔒 비밀번호 해싱 완료');
-
-        // 사용자 생성
-        const { data: newUser, error: insertError } = await supabase
-            .from('users')
-            .insert([{
-                email,
-                password_hash: passwordHash,
-                name,
-                phone
-            }])
-            .select()
-            .single();
-
-        if (insertError) {
-            console.error('❌ 사용자 생성 중 에러:', insertError);
-            if (insertError.code === '23505') {
-                return res.status(409).json({
-                    success: false,
-                    message: '이미 가입된 이메일입니다.'
-                });
-            }
-            return res.status(500).json({
-                success: false,
-                message: '회원가입 처리 중 오류가 발생했습니다.'
-            });
-        }
-
-        // 인증 기록 삭제
-        await supabase
-            .from('email_verifications')
-            .delete()
-            .eq('email', email);
-
-        console.log('✅ 회원가입 성공:', newUser.id);
-
-        res.status(201).json({
-            success: true,
-            message: '회원가입이 완료되었습니다.',
-            user: {
-                id: newUser.id,
-                email: newUser.email,
-                name: newUser.name,
-                phone: newUser.phone,
-                role: 'guardian',
-                created_at: newUser.created_at
-            }
-        });
-    })
-);
+process.on('SIGINT', () => {
+    console.log('');
+    console.log('⏹️  SIGINT 신호 수신 (Ctrl+C) - 서버 종료 중...');
+    process.exit(0);
+});
