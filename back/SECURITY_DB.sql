@@ -43,4 +43,17 @@ create table if not exists public.patients (
 
 create index if not exists idx_patients_guardian_id on public.patients(guardian_id);
 
+-- 이메일 인증 코드 (회원가입 전 인증용, 10분 유효)
+create table if not exists public.email_verifications (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  verified boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_email_verifications_email on public.email_verifications(email);
+create index if not exists idx_email_verifications_expires_at on public.email_verifications(expires_at);
+
 -- Optional: keep revoked/expired tokens cleaned periodically via scheduled job.

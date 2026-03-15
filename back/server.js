@@ -753,10 +753,21 @@ app.post('/send-verification-code',
         const codeHash = crypto.createHash('sha256').update(code).digest('hex');
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-        await supabase
+        const { error: deleteError } = await supabase
             .from('email_verifications')
             .delete()
             .eq('email', email);
+
+        if (deleteError) {
+            console.error('❌ 인증 코드 삭제(기존) 실패:', deleteError.code, deleteError.message);
+            const isTableMissing = deleteError.code === '42P01' || (deleteError.message && deleteError.message.includes('does not exist'));
+            return res.status(500).json({
+                success: false,
+                message: isTableMissing
+                    ? '이메일 인증 테이블이 설정되지 않았습니다. Supabase에 email_verifications 테이블을 생성해주세요.'
+                    : '서버 오류가 발생했습니다.'
+            });
+        }
 
         const { error: insertError } = await supabase
             .from('email_verifications')
@@ -768,10 +779,13 @@ app.post('/send-verification-code',
             }]);
 
         if (insertError) {
-            console.error('❌ 인증 코드 저장 실패:', insertError);
+            console.error('❌ 인증 코드 저장 실패:', insertError.code, insertError.message);
+            const isTableMissing = insertError.code === '42P01' || (insertError.message && insertError.message.includes('does not exist'));
             return res.status(500).json({
                 success: false,
-                message: '서버 오류가 발생했습니다.'
+                message: isTableMissing
+                    ? '이메일 인증 테이블이 설정되지 않았습니다. 관리자에게 문의하세요.'
+                    : '서버 오류가 발생했습니다.'
             });
         }
 
@@ -784,10 +798,13 @@ app.post('/send-verification-code',
                 expiresIn: 600
             });
         } catch (emailError) {
-            console.error('❌ 이메일 발송 실패:', emailError);
+            console.error('❌ 이메일 발송 실패:', emailError.message || emailError);
+            const isAuthMissing = !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD;
             return res.status(500).json({
                 success: false,
-                message: '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
+                message: isAuthMissing
+                    ? '이메일 발송 설정이 되어 있지 않습니다. (EMAIL_USER, EMAIL_PASSWORD)'
+                    : '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
             });
         }
     })
