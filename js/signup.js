@@ -9,9 +9,11 @@ const API_BASE_URL = 'https://seniorble-silvercar.onrender.com';
 let form;
 let emailInput;
 let emailVerifyBtn;
+let emailVerificationPanel;
 let verificationCodeSection;
 let verificationCodeInput;
 let verifyCodeBtn;
+let emailVerifiedMessage;
 let emailVerified = false;
 let verificationTimer = null;
 let timerSeconds = 0;
@@ -22,9 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
     form = document.getElementById('signupForm');
     emailInput = document.getElementById('email');
     emailVerifyBtn = document.getElementById('emailVerifyBtn');
+    emailVerificationPanel = document.getElementById('emailVerificationPanel');
     verificationCodeSection = document.getElementById('verificationCodeSection');
     verificationCodeInput = document.getElementById('verificationCode');
     verifyCodeBtn = document.getElementById('verifyCodeBtn');
+    emailVerifiedMessage = document.getElementById('emailVerifiedMessage');
     
     initEventListeners();
 });
@@ -49,10 +53,12 @@ function initEventListeners() {
     emailInput.addEventListener('input', function() {
         if (emailVerified) {
             emailVerified = false;
-            verificationCodeSection.classList.add('hidden');
+            emailVerificationPanel.classList.add('hidden');
+            emailVerifiedMessage.classList.add('hidden');
+            verificationCodeSection.classList.remove('hidden');
             emailVerifyBtn.disabled = false;
             emailVerifyBtn.textContent = '인증 코드 발송';
-            document.getElementById('emailVerifiedMessage').classList.add('hidden');
+            emailVerifyBtn.style.display = '';
         }
     });
 }
@@ -84,8 +90,11 @@ async function sendVerificationCode() {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            // 인증 코드 입력 영역 표시
+            // 인증 패널 표시 → 인증코드 입력창만 보이게
+            emailVerifiedMessage.classList.add('hidden');
             verificationCodeSection.classList.remove('hidden');
+            emailVerificationPanel.classList.remove('hidden');
+            verificationCodeInput.value = '';
             verificationCodeInput.focus();
             
             // 타이머 시작 (10분)
@@ -138,9 +147,9 @@ async function verifyEmailCode() {
                 clearInterval(verificationTimer);
             }
             
-            // UI 업데이트
+            // 인증코드 입력창 숨기고, 인증 완료 창만 표시
             verificationCodeSection.classList.add('hidden');
-            document.getElementById('emailVerifiedMessage').classList.remove('hidden');
+            emailVerifiedMessage.classList.remove('hidden');
             emailInput.disabled = true;
             emailVerifyBtn.style.display = 'none';
             
