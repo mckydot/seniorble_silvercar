@@ -38,6 +38,12 @@ const SELECTED_SERIAL_KEY = 'seniorble_selected_serial'; // 위험 전환 페이
 // 현재 로그인한 사용자 정보
 let currentUser = null;
 
+// 현재 보조기구 상태로 표시 중인 디바이스 (환자별 시리얼)
+let currentDeviceSerial = null;
+let currentPatientName = null;
+let deviceStatePollTimer = null;
+const DEVICE_STATE_POLL_MS = 5000;
+
 // ==========================================
 // 페이지 로드 시 초기화
 // ==========================================
@@ -71,7 +77,10 @@ window.addEventListener('DOMContentLoaded', function() {
     
     // 하단 네비게이션 이벤트 등록
     setupBottomNavigation();
-    
+
+    // 페이지 이탈 시 폴링 정리
+    window.addEventListener('beforeunload', stopDeviceStatePoll);
+
     console.log('Seniorble 보행보조기구 모니터링 시스템 초기화 완료');
 });
 
@@ -158,6 +167,7 @@ function renderPatientCards(container, patients, guardianName) {
     var calculateAge = SeniorbleCommon.calculateAge || function (b) { return b ? '—' : null; };
     var formatRelativeDate = SeniorbleCommon.formatRelativeDate || function () { return ''; };
     var escapeHtml = SeniorbleCommon.escapeHtml || function (t) { return (t == null || t === '') ? '' : String(t); };
+    var token = sessionStorage.getItem(TOKEN_KEY);
     container.innerHTML = '';
     patients.forEach(function (p) {
         var name = p.name || '—';
@@ -165,6 +175,7 @@ function renderPatientCards(container, patients, guardianName) {
         var diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
         var timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
         var profileImg = 'src/profile.png';
+        var serial = (p.device_serial_number && String(p.device_serial_number).trim()) ? p.device_serial_number.trim() : null;
         var card = document.createElement('div');
         card.className = 'patientContent main-patient-card';
         card.innerHTML =
@@ -175,9 +186,15 @@ function renderPatientCards(container, patients, guardianName) {
             '  <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">' + escapeHtml(name) + '</span></p>' +
             '  <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">' + escapeHtml(String(age)) + '</span>세</p>' +
             '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
+            (serial ? ('  <p class="serial profileValue"><span class="profileC">시리얼</span> : <span class="serialValue">' + escapeHtml(serial) + '</span></p>') : '') +
             '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
             '</div>';
         card.addEventListener('click', function () {
+            if (serial && token) {
+                setCurrentDevice(serial, name);
+                applyDeviceStateForSerial(serial, token);
+                startDeviceStatePoll(token);
+            }
             if (typeof window.showPatientPopup === 'function') window.showPatientPopup(p);
         });
         container.appendChild(card);
@@ -206,7 +223,9 @@ async function loadPatientForMain() {
             const data = await res.json();
             if (data.success && data.patient) {
                 renderPatientCards(container, [data.patient], guardianName);
+                setCurrentDevice(selectedSerial, data.patient.name || '—');
                 applyDeviceStateForSerial(selectedSerial, token);
+                startDeviceStatePoll(token);
                 return;
             }
             localStorage.removeItem(SELECTED_SERIAL_KEY);
@@ -221,13 +240,57 @@ async function loadPatientForMain() {
 
         if (patients.length === 0) {
             container.innerHTML = '<p class="main-patient-empty">등록된 환자가 없습니다. 프로필에서 환자를 등록해 주세요.</p>';
+            setCurrentDevice(null, null);
+            stopDeviceStatePoll();
+            activateSafeMode();
             return;
         }
         renderPatientCards(container, patients, guardianName);
-        activateSafeMode();
+        var firstWithSerial = patients.find(function (p) { return p.device_serial_number && String(p.device_serial_number).trim() !== ''; });
+        if (firstWithSerial) {
+            setCurrentDevice(firstWithSerial.device_serial_number.trim(), firstWithSerial.name || '—');
+            applyDeviceStateForSerial(firstWithSerial.device_serial_number.trim(), token);
+            startDeviceStatePoll(token);
+        } else {
+            setCurrentDevice(null, null);
+            stopDeviceStatePoll();
+            activateSafeMode();
+        }
     } catch (err) {
         console.error('메인 환자 로드 오류:', err);
         container.innerHTML = '<p class="main-patient-empty">환자 정보를 불러오지 못했습니다. 다시 시도해 주세요.</p>';
+        setCurrentDevice(null, null);
+        stopDeviceStatePoll();
+        activateSafeMode();
+    }
+}
+
+function setCurrentDevice(serial, patientName) {
+    currentDeviceSerial = serial;
+    currentPatientName = patientName;
+    var el = document.getElementById('deviceStateTarget');
+    if (!el) return;
+    if (serial && patientName) {
+        el.textContent = patientName + ' (시리얼: ' + serial + ')';
+    } else if (serial) {
+        el.textContent = '시리얼: ' + serial;
+    } else {
+        el.textContent = '표시할 보조기 등록이 없습니다.';
+    }
+}
+
+function startDeviceStatePoll(token) {
+    stopDeviceStatePoll();
+    if (!currentDeviceSerial || !token) return;
+    deviceStatePollTimer = setInterval(function () {
+        applyDeviceStateForSerial(currentDeviceSerial, token);
+    }, DEVICE_STATE_POLL_MS);
+}
+
+function stopDeviceStatePoll() {
+    if (deviceStatePollTimer) {
+        clearInterval(deviceStatePollTimer);
+        deviceStatePollTimer = null;
     }
 }
 

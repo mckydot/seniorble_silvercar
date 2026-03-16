@@ -47,10 +47,13 @@
             </div>
         </div>
 
-        <!-- 통합 상태 모니터링 카드 -->
+        <!-- 통합 상태 모니터링 카드 (환자별 시리얼에 맞춰 표시) -->
         <div class="status-monitor">
             <div class="monitor-header">
-                <h3 class="monitor-title">보조기구 상태</h3>
+                <div class="monitor-header-left">
+                    <h3 class="monitor-title">보조기구 상태</h3>
+                    <p class="monitor-subtitle" id="deviceStateTarget">—</p>
+                </div>
                 <div class="monitor-badge">
                     <div class="status-indicator safe-indicator"></div>
                     <span class="status-text safe-text">안전</span>

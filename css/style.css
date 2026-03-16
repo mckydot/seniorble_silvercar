@@ -403,10 +403,23 @@ body::after {
   border-bottom: 2px solid var(--border);
 }
 
+.monitor-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .monitor-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-dark);
+}
+
+.monitor-subtitle {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 400;
+  margin: 0;
 }
 
 .monitor-badge {
