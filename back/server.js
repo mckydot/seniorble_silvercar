@@ -21,7 +21,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { body, validationResult } = require('express-validator');
 const { createClient } = require('@supabase/supabase-js');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('./utils/jwt');
@@ -264,6 +264,11 @@ app.post('/signup',
                 message: '회원가입 처리 중 오류가 발생했습니다.'
             });
         }
+
+        await supabase
+            .from('email_verifications')
+            .delete()
+            .eq('email', email);
 
         await supabase
             .from('email_verifications')
@@ -659,77 +664,67 @@ app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (re
 });
 
 // ==========================================
-// 이메일 인증 (nodemailer 설정 및 라우트)
+// 이메일 인증 (Resend)
 // ==========================================
-const emailTransporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-    },
-    // ⭐ IPv4 강제 사용 옵션 추가
-    family: 4,  // IPv4 강제
-    connectionTimeout: 10000, // 10초 타임아웃
-    greetingTimeout: 5000,
-    socketTimeout: 10000,
-    tls: {
-        rejectUnauthorized: false
-    }
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-});
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Seniorble <onboarding@resend.dev>';
 
 function generateVerificationCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+const verificationEmailHtml = (code) => `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .logo { text-align: center; font-size: 32px; font-weight: 700; color: #2D5F5D; margin-bottom: 30px; }
+        .code-box { background: #FAF8F3; border: 2px solid #2D5F5D; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
+        .code { font-size: 36px; font-weight: 700; color: #2D5F5D; letter-spacing: 8px; }
+        .notice { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
+        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">Seniorble</div>
+        <h2 style="color: #1A1A1A; margin-bottom: 20px;">이메일 인증 코드</h2>
+        <p style="color: #666; line-height: 1.6;">
+            안녕하세요,<br>
+            Seniorble 회원가입을 위한 인증 코드를 보내드립니다.
+        </p>
+        <div class="code-box">
+            <div style="color: #666; font-size: 14px; margin-bottom: 15px;">인증 코드</div>
+            <div class="code">${code}</div>
+        </div>
+        <p class="notice">
+            ※ 본 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
+            ※ 본인이 요청하지 않았다면 이 메일을 무시하세요.
+        </p>
+        <div class="footer">
+            본 메일은 발신 전용입니다.<br>
+            © 2024 Seniorble. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+`;
+
 async function sendVerificationEmail(email, code) {
-    const mailOptions = {
-        from: process.env.EMAIL_FROM || 'Seniorble <noreply@seniorble.com>',
-        to: email,
+    const { data, error } = await resend.emails.send({
+        from: EMAIL_FROM,
+        to: [email],
         subject: '[Seniorble] 이메일 인증 코드',
-        html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                    .logo { text-align: center; font-size: 32px; font-weight: 700; color: #2D5F5D; margin-bottom: 30px; }
-                    .code-box { background: #FAF8F3; border: 2px solid #2D5F5D; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
-                    .code { font-size: 36px; font-weight: 700; color: #2D5F5D; letter-spacing: 8px; }
-                    .notice { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
-                    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="logo">Seniorble</div>
-                    <h2 style="color: #1A1A1A; margin-bottom: 20px;">이메일 인증 코드</h2>
-                    <p style="color: #666; line-height: 1.6;">
-                        안녕하세요,<br>
-                        Seniorble 회원가입을 위한 인증 코드를 보내드립니다.
-                    </p>
-                    <div class="code-box">
-                        <div style="color: #666; font-size: 14px; margin-bottom: 15px;">인증 코드</div>
-                        <div class="code">${code}</div>
-                    </div>
-                    <p class="notice">
-                        ※ 본 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
-                        ※ 본인이 요청하지 않았다면 이 메일을 무시하세요.
-                    </p>
-                    <div class="footer">
-                        본 메일은 발신 전용입니다.<br>
-                        © 2024 Seniorble. All rights reserved.
-                    </div>
-                </div>
-            </body>
-            </html>
-        `
-    };
-    await emailTransporter.sendMail(mailOptions);
+        html: verificationEmailHtml(code)
+    });
+    if (error) {
+        throw new Error(error.message || 'Resend 발송 실패');
+    }
+    return data;
 }
 
 app.post('/send-verification-code',
@@ -811,11 +806,11 @@ app.post('/send-verification-code',
             });
         } catch (emailError) {
             console.error('❌ 이메일 발송 실패:', emailError.message || emailError);
-            const isAuthMissing = !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD;
+            const isKeyMissing = !process.env.RESEND_API_KEY;
             return res.status(500).json({
                 success: false,
-                message: isAuthMissing
-                    ? '이메일 발송 설정이 되어 있지 않습니다. (EMAIL_USER, EMAIL_PASSWORD)'
+                message: isKeyMissing
+                    ? '이메일 발송 설정이 되어 있지 않습니다. (RESEND_API_KEY)'
                     : '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
             });
         }
