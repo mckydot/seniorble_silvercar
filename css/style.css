@@ -869,6 +869,36 @@ body::after {
   padding-bottom: 0;
 }
 
+.device-status-row {
+  margin: 6px 0 4px 0;
+}
+
+.device-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.device-status-badge.safe {
+  background: rgba(6, 214, 160, 0.15);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.device-status-badge.danger {
+  background: rgba(230, 57, 70, 0.15);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.device-status-badge.none {
+  background: var(--cream);
+  color: var(--text-light);
+  border: 1px solid var(--border);
+}
+
 .main-patient-loading,
 .main-patient-empty {
   text-align: center;

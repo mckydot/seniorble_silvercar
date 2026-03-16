@@ -163,7 +163,8 @@ function loadUserInfo() {
 // ==========================================
 var SeniorbleCommon = window.SeniorbleCommon || {};
 
-function renderPatientCards(container, patients, guardianName) {
+function renderPatientCards(container, patients, guardianName, statusMap) {
+    statusMap = statusMap || {};
     var calculateAge = SeniorbleCommon.calculateAge || function (b) { return b ? '—' : null; };
     var formatRelativeDate = SeniorbleCommon.formatRelativeDate || function () { return ''; };
     var escapeHtml = SeniorbleCommon.escapeHtml || function (t) { return (t == null || t === '') ? '' : String(t); };
@@ -176,6 +177,17 @@ function renderPatientCards(container, patients, guardianName) {
         var timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
         var profileImg = 'src/profile.png';
         var serial = (p.device_serial_number && String(p.device_serial_number).trim()) ? p.device_serial_number.trim() : null;
+        var status = serial ? (statusMap[serial] === 'danger' ? 'danger' : 'safe') : null;
+        var statusHtml = '';
+        if (serial) {
+            if (status === 'danger') {
+                statusHtml = '<p class="device-status-row"><span class="device-status-badge danger">위험</span></p>';
+            } else {
+                statusHtml = '<p class="device-status-row"><span class="device-status-badge safe">안전</span></p>';
+            }
+        } else {
+            statusHtml = '<p class="device-status-row"><span class="device-status-badge none">보조기 미등록</span></p>';
+        }
         var card = document.createElement('div');
         card.className = 'patientContent main-patient-card';
         card.innerHTML =
@@ -187,6 +199,7 @@ function renderPatientCards(container, patients, guardianName) {
             '  <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">' + escapeHtml(String(age)) + '</span>세</p>' +
             '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
             (serial ? ('  <p class="serial profileValue"><span class="profileC">시리얼</span> : <span class="serialValue">' + escapeHtml(serial) + '</span></p>') : '') +
+            statusHtml +
             '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
             '</div>';
         card.addEventListener('click', function () {
@@ -199,6 +212,16 @@ function renderPatientCards(container, patients, guardianName) {
         });
         container.appendChild(card);
     });
+}
+
+function fetchDeviceState(serial, token) {
+    return fetch(`${API_BASE_URL}/device-state/${encodeURIComponent(serial)}`, {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) { return (data.success && data.status) ? data.status : 'normal'; })
+        .catch(function () { return 'normal'; });
 }
 
 async function loadPatientForMain() {
@@ -222,7 +245,10 @@ async function loadPatientForMain() {
             });
             const data = await res.json();
             if (data.success && data.patient) {
-                renderPatientCards(container, [data.patient], guardianName);
+                var singleStatus = await fetchDeviceState(selectedSerial, token);
+                var singleStatusMap = {};
+                singleStatusMap[selectedSerial] = singleStatus;
+                renderPatientCards(container, [data.patient], guardianName, singleStatusMap);
                 setCurrentDevice(selectedSerial, data.patient.name || '—');
                 applyDeviceStateForSerial(selectedSerial, token);
                 startDeviceStatePoll(token);
@@ -245,7 +271,17 @@ async function loadPatientForMain() {
             activateSafeMode();
             return;
         }
-        renderPatientCards(container, patients, guardianName);
+
+        var serials = patients
+            .filter(function (p) { return p.device_serial_number && String(p.device_serial_number).trim() !== ''; })
+            .map(function (p) { return p.device_serial_number.trim(); });
+        var statusMap = {};
+        if (serials.length > 0) {
+            var results = await Promise.all(serials.map(function (s) { return fetchDeviceState(s, token); }));
+            serials.forEach(function (s, i) { statusMap[s] = results[i]; });
+        }
+        renderPatientCards(container, patients, guardianName, statusMap);
+
         var firstWithSerial = patients.find(function (p) { return p.device_serial_number && String(p.device_serial_number).trim() !== ''; });
         if (firstWithSerial) {
             setCurrentDevice(firstWithSerial.device_serial_number.trim(), firstWithSerial.name || '—');
