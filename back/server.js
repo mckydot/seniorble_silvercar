@@ -83,6 +83,9 @@ function refreshCookieOptions() {
     };
 }
 
+// ⭐ 이 줄 추가 (CORS 설정 위에)
+app.set('trust proxy', 1); // Render, Heroku 등 프록시 뒤에서 실행 시 필수
+
 // CORS 설정 (프론트엔드만 허용)
 // localhost와 127.0.0.1은 브라우저에서 서로 다른 origin으로 취급됨 → 둘 다 허용
 const allowedOrigins = [
