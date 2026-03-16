@@ -21,7 +21,6 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const { Resend } = require('resend');
 const { body, validationResult } = require('express-validator');
 const { createClient } = require('@supabase/supabase-js');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('./utils/jwt');
@@ -176,7 +175,7 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 회원가입 (공개, 이메일 인증 완료 필수)
+// 회원가입 (공개)
 // ==========================================
 app.post('/signup',
     authLimiter,
@@ -201,20 +200,6 @@ app.post('/signup',
 
         const { email, password, name, phone } = req.body;
         console.log(`📝 회원가입 시도`);
-
-        // 이메일 인증 완료 여부 확인
-        const { data: verification } = await supabase
-            .from('email_verifications')
-            .select('verified')
-            .eq('email', email)
-            .single();
-
-        if (!verification || !verification.verified) {
-            return res.status(400).json({
-                success: false,
-                message: '이메일 인증이 완료되지 않았습니다.'
-            });
-        }
 
         const { data: existingUser, error: checkError } = await supabase
             .from('users')
@@ -264,16 +249,6 @@ app.post('/signup',
                 message: '회원가입 처리 중 오류가 발생했습니다.'
             });
         }
-
-        await supabase
-            .from('email_verifications')
-            .delete()
-            .eq('email', email);
-
-        await supabase
-            .from('email_verifications')
-            .delete()
-            .eq('email', email);
 
         console.log('✅ 회원가입 성공:', newUser.id);
 
@@ -664,222 +639,6 @@ app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (re
 });
 
 // ==========================================
-// 이메일 인증 (Resend)
-// ==========================================
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const EMAIL_FROM = process.env.EMAIL_FROM || 'Seniorble <onboarding@resend.dev>';
-
-function generateVerificationCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-const verificationEmailHtml = (code) => `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .logo { text-align: center; font-size: 32px; font-weight: 700; color: #2D5F5D; margin-bottom: 30px; }
-        .code-box { background: #FAF8F3; border: 2px solid #2D5F5D; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0; }
-        .code { font-size: 36px; font-weight: 700; color: #2D5F5D; letter-spacing: 8px; }
-        .notice { color: #666; font-size: 14px; line-height: 1.6; margin-top: 20px; }
-        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">Seniorble</div>
-        <h2 style="color: #1A1A1A; margin-bottom: 20px;">이메일 인증 코드</h2>
-        <p style="color: #666; line-height: 1.6;">
-            안녕하세요,<br>
-            Seniorble 회원가입을 위한 인증 코드를 보내드립니다.
-        </p>
-        <div class="code-box">
-            <div style="color: #666; font-size: 14px; margin-bottom: 15px;">인증 코드</div>
-            <div class="code">${code}</div>
-        </div>
-        <p class="notice">
-            ※ 본 인증 코드는 <strong>10분간 유효</strong>합니다.<br>
-            ※ 본인이 요청하지 않았다면 이 메일을 무시하세요.
-        </p>
-        <div class="footer">
-            본 메일은 발신 전용입니다.<br>
-            © 2024 Seniorble. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-`;
-
-async function sendVerificationEmail(email, code) {
-    const { data, error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to: [email],
-        subject: '[Seniorble] 이메일 인증 코드',
-        html: verificationEmailHtml(code)
-    });
-    if (error) {
-        throw new Error(error.message || 'Resend 발송 실패');
-    }
-    return data;
-}
-
-app.post('/send-verification-code',
-    authLimiter,
-    [body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail()],
-    asyncHandler(async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: '입력값이 올바르지 않습니다.',
-                errors: errors.array().map(err => err.msg)
-            });
-        }
-
-        const { email } = req.body;
-        console.log('📧 이메일 인증 코드 발송 요청:', email);
-
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', email)
-            .single();
-
-        if (existingUser) {
-            return res.status(409).json({
-                success: false,
-                message: '이미 가입된 이메일입니다.'
-            });
-        }
-
-        const code = generateVerificationCode();
-        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        const { error: deleteError } = await supabase
-            .from('email_verifications')
-            .delete()
-            .eq('email', email);
-
-        if (deleteError) {
-            console.error('❌ 인증 코드 삭제(기존) 실패:', deleteError.code, deleteError.message);
-            const isTableMissing = deleteError.code === '42P01' || (deleteError.message && deleteError.message.includes('does not exist'));
-            return res.status(500).json({
-                success: false,
-                message: isTableMissing
-                    ? '이메일 인증 테이블이 설정되지 않았습니다. Supabase에 email_verifications 테이블을 생성해주세요.'
-                    : '서버 오류가 발생했습니다.'
-            });
-        }
-
-        const { error: insertError } = await supabase
-            .from('email_verifications')
-            .insert([{
-                email,
-                code_hash: codeHash,
-                expires_at: expiresAt.toISOString(),
-                verified: false
-            }]);
-
-        if (insertError) {
-            console.error('❌ 인증 코드 저장 실패:', insertError.code, insertError.message);
-            const isTableMissing = insertError.code === '42P01' || (insertError.message && insertError.message.includes('does not exist'));
-            return res.status(500).json({
-                success: false,
-                message: isTableMissing
-                    ? '이메일 인증 테이블이 설정되지 않았습니다. 관리자에게 문의하세요.'
-                    : '서버 오류가 발생했습니다.'
-            });
-        }
-
-        try {
-            await sendVerificationEmail(email, code);
-            console.log('✅ 이메일 인증 코드 발송 완료:', email);
-            res.status(200).json({
-                success: true,
-                message: '인증 코드가 발송되었습니다. 이메일을 확인해주세요.',
-                expiresIn: 600
-            });
-        } catch (emailError) {
-            console.error('❌ 이메일 발송 실패:', emailError.message || emailError);
-            const isKeyMissing = !process.env.RESEND_API_KEY;
-            return res.status(500).json({
-                success: false,
-                message: isKeyMissing
-                    ? '이메일 발송 설정이 되어 있지 않습니다. (RESEND_API_KEY)'
-                    : '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
-            });
-        }
-    })
-);
-
-app.post('/verify-email-code',
-    authLimiter,
-    [
-        body('email').isEmail().withMessage('올바른 이메일 형식이 아닙니다.').normalizeEmail(),
-        body('code').isLength({ min: 6, max: 6 }).withMessage('인증 코드는 6자리입니다.')
-    ],
-    asyncHandler(async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                message: '입력값이 올바르지 않습니다.'
-            });
-        }
-
-        const { email, code } = req.body;
-        console.log('🔍 이메일 인증 코드 확인:', email);
-
-        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
-
-        const { data: verification, error } = await supabase
-            .from('email_verifications')
-            .select('*')
-            .eq('email', email)
-            .eq('code_hash', codeHash)
-            .single();
-
-        if (error || !verification) {
-            return res.status(400).json({
-                success: false,
-                message: '인증 코드가 일치하지 않습니다.'
-            });
-        }
-
-        if (new Date(verification.expires_at) < new Date()) {
-            return res.status(400).json({
-                success: false,
-                message: '인증 코드가 만료되었습니다. 다시 요청해주세요.'
-            });
-        }
-
-        if (verification.verified) {
-            return res.status(400).json({
-                success: false,
-                message: '이미 인증된 코드입니다.'
-            });
-        }
-
-        await supabase
-            .from('email_verifications')
-            .update({ verified: true })
-            .eq('email', email)
-            .eq('code_hash', codeHash);
-
-        console.log('✅ 이메일 인증 완료:', email);
-        res.status(200).json({
-            success: true,
-            message: '이메일 인증이 완료되었습니다.'
-        });
-    })
-);
-
-// ==========================================
 // 404 에러 핸들러
 // ==========================================
 app.use((req, res) => {
@@ -919,12 +678,10 @@ app.listen(PORT, () => {
     console.log('');
     console.log('사용 가능한 엔드포인트:');
     console.log('  [공개]');
-    console.log('  GET  /                     - 서버 상태 확인');
-    console.log('  GET  /health                - 헬스체크');
-    console.log('  POST /send-verification-code - 이메일 인증 코드 발송');
-    console.log('  POST /verify-email-code    - 이메일 인증 코드 확인');
-    console.log('  POST /signup               - 회원가입 (이메일 인증 후)');
-    console.log('  POST /login                - 로그인 (JWT 발급)');
+    console.log('  GET  /         - 서버 상태 확인');
+    console.log('  GET  /health   - 헬스체크');
+    console.log('  POST /signup   - 회원가입');
+    console.log('  POST /login    - 로그인 (JWT 발급)');
     console.log('');
     console.log('  [인증 필요]');
     console.log('  GET  /auth/me     - 현재 사용자 정보');
