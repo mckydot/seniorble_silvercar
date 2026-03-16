@@ -56,4 +56,14 @@ create table if not exists public.email_verifications (
 create index if not exists idx_email_verifications_email on public.email_verifications(email);
 create index if not exists idx_email_verifications_expires_at on public.email_verifications(expires_at);
 
+-- 보행보조기 디바이스 상태 (시리얼 번호별 위험/안전, 메인 페이지 UI 연동)
+create table if not exists public.device_state (
+  device_serial_number text primary key,
+  status text not null default 'normal' check (status in ('normal', 'danger')),
+  velocity text null,
+  tilt_status text null,
+  impact_value text null,
+  updated_at timestamptz not null default now()
+);
+
 -- Optional: keep revoked/expired tokens cleaned periodically via scheduled job.

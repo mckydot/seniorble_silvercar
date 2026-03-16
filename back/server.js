@@ -513,6 +513,35 @@ app.get('/patients', authenticateToken, requireRole(['guardian']), async (req, r
 });
 
 /**
+ * 시리얼 번호로 환자 조회 (Guardian만, 본인 등록 환자 중 device_serial_number 일치)
+ */
+app.get('/patients/by-serial/:serial', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const serial = (req.params.serial || '').trim();
+        if (!serial) {
+            return res.status(400).json({ success: false, message: '시리얼 번호를 입력해주세요.' });
+        }
+        const { data: patient, error } = await supabase
+            .from('patients')
+            .select('id, name, birthdate, gender, device_serial_number, notes, relationship, created_at')
+            .eq('guardian_id', req.user.id)
+            .eq('device_serial_number', serial)
+            .single();
+
+        if (error || !patient) {
+            return res.status(404).json({ success: false, message: '해당 시리얼 번호로 등록된 환자가 없습니다.' });
+        }
+        res.status(200).json({ success: true, patient });
+    } catch (error) {
+        console.error('❌ 환자 시리얼 조회 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
+/**
  * 환자 등록 (Guardian만)
  */
 app.post('/patients', authenticateToken, requireRole(['guardian']), async (req, res) => {
@@ -638,6 +667,110 @@ app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (re
     }
 });
 
+/**
+ * 디바이스 상태 조회 (시리얼 번호, 본인 환자만)
+ */
+app.get('/device-state/:serial', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const serial = (req.params.serial || '').trim();
+        if (!serial) {
+            return res.status(400).json({ success: false, message: '시리얼 번호를 입력해주세요.' });
+        }
+        const { data: patient } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('guardian_id', req.user.id)
+            .eq('device_serial_number', serial)
+            .single();
+        if (!patient) {
+            return res.status(404).json({ success: false, message: '해당 시리얼 번호로 등록된 환자가 없습니다.' });
+        }
+
+        const { data: state, error } = await supabase
+            .from('device_state')
+            .select('status, velocity, tilt_status, impact_value, updated_at')
+            .eq('device_serial_number', serial)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('❌ device_state 조회 오류:', error);
+            return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+        }
+
+        const result = state || {
+            status: 'normal',
+            velocity: null,
+            tilt_status: null,
+            impact_value: null,
+            updated_at: new Date().toISOString()
+        };
+        res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        console.error('❌ device-state 조회 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
+/**
+ * 디바이스 상태 설정 (위험/안전 신호, 본인 환자 시리얼만)
+ */
+app.post('/device-state', authenticateToken, requireRole(['guardian']), async (req, res) => {
+    try {
+        const serial = (req.body?.device_serial_number || '').trim();
+        let status = (req.body?.status || 'normal').toLowerCase();
+        if (status !== 'normal' && status !== 'danger') status = 'normal';
+        if (!serial) {
+            return res.status(400).json({ success: false, message: '시리얼 번호를 입력해주세요.' });
+        }
+
+        const { data: patient } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('guardian_id', req.user.id)
+            .eq('device_serial_number', serial)
+            .single();
+        if (!patient) {
+            return res.status(404).json({ success: false, message: '해당 시리얼 번호로 등록된 환자가 없습니다.' });
+        }
+
+        const velocity = req.body?.velocity != null ? String(req.body.velocity) : (status === 'danger' ? '0.1' : null);
+        const tilt_status = req.body?.tilt_status != null ? String(req.body.tilt_status) : (status === 'danger' ? '위험' : null);
+        const impact_value = req.body?.impact_value != null ? String(req.body.impact_value) : (status === 'danger' ? '8.5' : null);
+
+        const { error: upsertError } = await supabase
+            .from('device_state')
+            .upsert({
+                device_serial_number: serial,
+                status,
+                velocity,
+                tilt_status,
+                impact_value,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'device_serial_number' });
+
+        if (upsertError) {
+            console.error('❌ device_state 저장 오류:', upsertError);
+            return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+        }
+        console.log(`📱 device_state 업데이트: ${serial} → ${status}`);
+        res.status(200).json({
+            success: true,
+            message: status === 'danger' ? '위험 신호가 반영되었습니다.' : '원상 복구되었습니다.',
+            device_serial_number: serial,
+            status
+        });
+    } catch (error) {
+        console.error('❌ device-state 설정 중 오류:', error);
+        res.status(500).json({
+            success: false,
+            message: '서버 내부 오류가 발생했습니다.'
+        });
+    }
+});
+
 // ==========================================
 // 404 에러 핸들러
 // ==========================================
@@ -686,9 +819,12 @@ app.listen(PORT, () => {
     console.log('  [인증 필요]');
     console.log('  GET  /auth/me     - 현재 사용자 정보');
     console.log('  GET  /patients    - 환자 목록 (Guardian, 본인 등록만)');
+    console.log('  GET  /patients/by-serial/:serial - 시리얼로 환자 조회 (본인만)');
     console.log('  GET  /patients/:id - 단일 환자 조회 (본인만)');
     console.log('  POST /patients    - 환자 등록 (Guardian)');
     console.log('  PUT  /patients/:id - 환자 수정 (본인만)');
+    console.log('  GET  /device-state/:serial - 디바이스 상태 조회');
+    console.log('  POST /device-state - 디바이스 위험/안전 신호 설정');
     console.log('');
 });
 
