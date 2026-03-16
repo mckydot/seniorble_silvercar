@@ -663,12 +663,21 @@ app.put('/patients/:id', authenticateToken, requireRole(['guardian']), async (re
 // ==========================================
 const emailTransporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
+    port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
+    },
+    // ⭐ IPv4 강제 사용 옵션 추가
+    family: 4,  // IPv4 강제
+    connectionTimeout: 10000, // 10초 타임아웃
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
+    tls: {
+        rejectUnauthorized: false
     }
+
 });
 
 function generateVerificationCode() {
