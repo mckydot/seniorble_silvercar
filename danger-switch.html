@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>위험 상황 전환 - Seniorble</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/danger-switch.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="danger-switch-wrap">
+        <header class="danger-switch-header">
+            <h1 class="danger-switch-title">위험 상황 전환</h1>
+            <p class="danger-switch-desc">시리얼 번호로 메인 표시 대상을 선택하고, 위험 신호를 보내거나 원상 복구할 수 있습니다.</p>
+        </header>
+
+        <section class="danger-switch-section">
+            <h2 class="section-title">메인 페이지에 표시할 환자 선택</h2>
+            <p class="section-help">등록된 환자의 보행보조기 시리얼 번호를 입력하면, 메인 페이지에서 해당 환자 정보만 표시됩니다.</p>
+            <div class="input-row">
+                <input type="text" id="selectSerial" class="serial-input" placeholder="시리얼 번호 입력" autocomplete="off">
+                <button type="button" id="btnSelectForMain" class="btn-primary">메인에 표시</button>
+            </div>
+            <p id="selectResult" class="result-msg hidden"></p>
+        </section>
+
+        <section class="danger-switch-section">
+            <h2 class="section-title">위험 신호 보내기</h2>
+            <p class="section-help">특정 시리얼 번호의 보행보조기에 위험 신호를 보냅니다. 메인 페이지에서 해당 디바이스가 위험 UI로 전환됩니다.</p>
+            <div class="input-row">
+                <input type="text" id="dangerSerial" class="serial-input" placeholder="위험 신호 보낼 시리얼 번호" autocomplete="off">
+                <button type="button" id="btnSendDanger" class="btn-danger">위험 신호 보내기</button>
+            </div>
+            <p id="dangerResult" class="result-msg hidden"></p>
+        </section>
+
+        <section class="danger-switch-section">
+            <h2 class="section-title">원상 복구</h2>
+            <p class="section-help">위험 신호를 보냈던 시리얼 번호를 입력하면 해당 디바이스를 안전 상태로 되돌립니다.</p>
+            <div class="input-row">
+                <input type="text" id="normalSerial" class="serial-input" placeholder="원상 복구할 시리얼 번호" autocomplete="off">
+                <button type="button" id="btnRestoreNormal" class="btn-normal">원상 복구</button>
+            </div>
+            <p id="normalResult" class="result-msg hidden"></p>
+        </section>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/danger-switch.js"></script>
+</body>
+</html>

@@ -33,6 +33,7 @@ let geocoder = null;
 // 로컬 스토리지 키
 const USER_KEY = 'seniorble_user';
 const TOKEN_KEY = 'seniorble_token'; // sessionStorage에 저장됨
+const SELECTED_SERIAL_KEY = 'seniorble_selected_serial'; // 위험 전환 페이지에서 선택한 시리얼
 
 // 현재 로그인한 사용자 정보
 let currentUser = null;
@@ -49,7 +50,7 @@ window.addEventListener('DOMContentLoaded', function() {
     // 사용자 정보 표시
     loadUserInfo();
     
-    // 로그인한 사용자가 등록한 환자만 메인 카드에 표시
+    // 선택된 시리얼이 있으면 해당 환자만 표시 + 디바이스 상태(위험/안전) 반영, 없으면 전체 환자 표시
     loadPatientForMain();
     
     // 카카오 지도 API 로드 후 주소 업데이트
@@ -149,9 +150,39 @@ function loadUserInfo() {
 }
 
 // ==========================================
-// 메인 환자 카드 표시 (등록된 모든 환자 목록 표시)
+// 메인 환자 카드 표시 (선택 시리얼이 있으면 해당 환자만, 없으면 전체)
 // ==========================================
 var SeniorbleCommon = window.SeniorbleCommon || {};
+
+function renderPatientCards(container, patients, guardianName) {
+    var calculateAge = SeniorbleCommon.calculateAge || function (b) { return b ? '—' : null; };
+    var formatRelativeDate = SeniorbleCommon.formatRelativeDate || function () { return ''; };
+    var escapeHtml = SeniorbleCommon.escapeHtml || function (t) { return (t == null || t === '') ? '' : String(t); };
+    container.innerHTML = '';
+    patients.forEach(function (p) {
+        var name = p.name || '—';
+        var age = p.birthdate ? calculateAge(p.birthdate) : '—';
+        var diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
+        var timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
+        var profileImg = 'src/profile.png';
+        var card = document.createElement('div');
+        card.className = 'patientContent main-patient-card';
+        card.innerHTML =
+            '<div class="profileWrap">' +
+            '  <div class="patientProfile"><img src="' + escapeHtml(profileImg) + '" alt="' + escapeHtml(name) + ' 프로필"></div>' +
+            '</div>' +
+            '<div class="patientInfo">' +
+            '  <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">' + escapeHtml(name) + '</span></p>' +
+            '  <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">' + escapeHtml(String(age)) + '</span>세</p>' +
+            '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
+            '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
+            '</div>';
+        card.addEventListener('click', function () {
+            if (typeof window.showPatientPopup === 'function') window.showPatientPopup(p);
+        });
+        container.appendChild(card);
+    });
+}
 
 async function loadPatientForMain() {
     const container = document.getElementById('mainPatientList');
@@ -163,7 +194,24 @@ async function loadPatientForMain() {
         return;
     }
 
+    const guardianName = currentUser ? currentUser.name : '—';
+    const selectedSerial = localStorage.getItem(SELECTED_SERIAL_KEY);
+
     try {
+        if (selectedSerial) {
+            const res = await fetch(`${API_BASE_URL}/patients/by-serial/${encodeURIComponent(selectedSerial)}`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success && data.patient) {
+                renderPatientCards(container, [data.patient], guardianName);
+                applyDeviceStateForSerial(selectedSerial, token);
+                return;
+            }
+            localStorage.removeItem(SELECTED_SERIAL_KEY);
+        }
+
         const response = await fetch(`${API_BASE_URL}/patients`, {
             method: 'GET',
             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
@@ -175,41 +223,28 @@ async function loadPatientForMain() {
             container.innerHTML = '<p class="main-patient-empty">등록된 환자가 없습니다. 프로필에서 환자를 등록해 주세요.</p>';
             return;
         }
-
-        const guardianName = currentUser ? currentUser.name : '—';
-        container.innerHTML = '';
-
-        var calculateAge = SeniorbleCommon.calculateAge || function (b) { return b ? '—' : null; };
-        var formatRelativeDate = SeniorbleCommon.formatRelativeDate || function () { return ''; };
-        var escapeHtml = SeniorbleCommon.escapeHtml || function (t) { return (t == null || t === '') ? '' : String(t); };
-
-        patients.forEach(function (p) {
-            var name = p.name || '—';
-            var age = p.birthdate ? calculateAge(p.birthdate) : '—';
-            var diagnosis = (p.notes && p.notes.trim()) ? p.notes : '—';
-            var timeline = p.created_at ? ' (' + formatRelativeDate(p.created_at) + ')' : '';
-            var profileImg = 'src/profile.png';
-
-            var card = document.createElement('div');
-            card.className = 'patientContent main-patient-card';
-            card.innerHTML =
-                '<div class="profileWrap">' +
-                '  <div class="patientProfile"><img src="' + escapeHtml(profileImg) + '" alt="' + escapeHtml(name) + ' 프로필"></div>' +
-                '</div>' +
-                '<div class="patientInfo">' +
-                '  <p class="name profileValue"><span class="profileC">이름</span> : <span class="nameValue">' + escapeHtml(name) + '</span></p>' +
-                '  <p class="age profileValue"><span class="profileC">나이</span> : <span class="ageValue">' + escapeHtml(String(age)) + '</span>세</p>' +
-                '  <p class="mainG profileValue"><span class="profileC">주보호자</span> : <span class="guardianValue">' + escapeHtml(guardianName) + '</span></p>' +
-                '  <p class="record profileValue"><span class="profileC">특징</span> : <span class="diagnosis">' + escapeHtml(diagnosis) + '</span><span class="recordTimeline">' + escapeHtml(timeline) + '</span></p>' +
-                '</div>';
-            card.addEventListener('click', function () {
-                if (typeof window.showPatientPopup === 'function') window.showPatientPopup(p);
-            });
-            container.appendChild(card);
-        });
+        renderPatientCards(container, patients, guardianName);
+        activateSafeMode();
     } catch (err) {
         console.error('메인 환자 로드 오류:', err);
         container.innerHTML = '<p class="main-patient-empty">환자 정보를 불러오지 못했습니다. 다시 시도해 주세요.</p>';
+    }
+}
+
+async function applyDeviceStateForSerial(serial, token) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/device-state/${encodeURIComponent(serial)}`, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success && data.status === 'danger') {
+            activateDangerMode(data.velocity, data.tilt_status, data.impact_value);
+        } else {
+            activateSafeMode();
+        }
+    } catch (e) {
+        activateSafeMode();
     }
 }
 
@@ -217,9 +252,9 @@ async function loadPatientForMain() {
 // 위험 상황 UI 토글 기능
 // ==========================================
 
-// 위험 상황으로 전환 (낙상 감지)
+// 위험 상황으로 전환 (낙상 감지) - 로컬 테스트용 버튼
 document.getElementById('change')?.addEventListener('click', function() {
-    activateDangerMode();
+    activateDangerMode('0.1', '위험', '8.5');
 });
 
 // 안전 상황으로 전환
@@ -227,18 +262,15 @@ document.getElementById('change2')?.addEventListener('click', function() {
     activateSafeMode();
 });
 
-function activateDangerMode() {
-    // 경고 메시지 표시
+function activateDangerMode(velocity, tiltStatusText, impactValue) {
+    velocity = velocity != null && String(velocity).trim() !== '' ? String(velocity).trim() : '0.1';
+    tiltStatusText = tiltStatusText != null && String(tiltStatusText).trim() !== '' ? String(tiltStatusText).trim() : '위험';
+    impactValue = impactValue != null && String(impactValue).trim() !== '' ? String(impactValue).trim() : '8.5';
+
     document.querySelector('.alert')?.classList.remove('hidden');
-    
-    // 상태 모니터 위험 모드
     document.querySelector('.status-monitor')?.classList.add('danger-mode');
-    
-    // 긴급 버튼 활성화
     document.getElementById('emergency_wrap')?.classList.add('danger-active');
     document.querySelector('.emergency-btn')?.classList.add('danger-active');
-    
-    // 상태 배지 변경
     document.querySelector('.safe-text')?.classList.add('hidden');
     document.querySelector('.danger-text')?.classList.remove('hidden');
     const indicator = document.querySelector('.status-indicator');
@@ -246,12 +278,11 @@ function activateDangerMode() {
         indicator.classList.remove('safe-indicator');
         indicator.classList.add('danger-indicator');
     }
-    
-    // 이동 속도 - 급격히 감소 (넘어지는 순간)
+
     const velocityValue = document.querySelector('.monitor-grid .monitor-item:nth-child(1) .monitor-value');
     const velocityDesc = document.querySelector('.monitor-grid .monitor-item:nth-child(1) .monitor-description');
     if (velocityValue) {
-        velocityValue.textContent = '0.1';
+        velocityValue.textContent = velocity;
         velocityValue.classList.remove('safe-value');
         velocityValue.classList.add('danger-value');
     }
@@ -259,23 +290,23 @@ function activateDangerMode() {
         velocityDesc.textContent = '비정상적인 속도 감소';
         velocityDesc.style.color = 'var(--danger)';
     }
-    
-    // 기울기 센서 - 위험 각도
-    const tiltStatus = document.querySelector('.monitor-grid .monitor-item:nth-child(2) .monitor-status');
+
+    const tiltEl = document.querySelector('.monitor-grid .monitor-item:nth-child(2) .monitor-status');
     const tiltDesc = document.querySelector('.monitor-grid .monitor-item:nth-child(2) .monitor-description');
-    if (tiltStatus) {
-        tiltStatus.textContent = '위험';
-        tiltStatus.classList.remove('safe-status');
-        tiltStatus.classList.add('danger-status');
+    if (tiltEl) {
+        tiltEl.textContent = tiltStatusText;
+        tiltEl.classList.remove('safe-status');
+        tiltEl.classList.add('danger-status');
     }
     if (tiltDesc) {
         tiltDesc.textContent = '기울기 임계값 초과 (45°)';
         tiltDesc.style.color = 'var(--danger)';
     }
-    
-    // 충격 감지 알림 표시
+
+    const impactValEl = document.querySelector('.impact-alert .impact-value');
+    if (impactValEl) impactValEl.textContent = impactValue;
     document.querySelector('.impact-alert')?.classList.remove('hidden');
-    
+
     console.log('위험 상황 UI 활성화 - 낙상 감지됨');
 }
 

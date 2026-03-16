@@ -1,0 +1,126 @@
+/* 위험 상황 전환 페이지 */
+.danger-switch-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+}
+
+.danger-switch-header {
+    margin-bottom: 28px;
+    text-align: center;
+}
+
+.danger-switch-title {
+    font-size: 22px;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.danger-switch-desc {
+    font-size: 14px;
+    color: var(--text-light);
+    line-height: 1.5;
+}
+
+.danger-switch-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border);
+}
+
+.section-title {
+    font-size: 16px;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.section-help {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+
+.input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.serial-input {
+    flex: 1;
+    min-width: 160px;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--cream);
+    color: var(--text-dark);
+    font-family: inherit;
+}
+
+.serial-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+}
+
+.btn-primary,
+.btn-danger,
+.btn-normal {
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #d32f2f 0%, var(--danger) 100%);
+    color: #fff;
+}
+
+.btn-normal {
+    background: linear-gradient(135deg, #06D6A0 0%, #04B388 100%);
+    color: #fff;
+}
+
+.btn-primary:active,
+.btn-danger:active,
+.btn-normal:active {
+    transform: scale(0.98);
+}
+
+.result-msg {
+    margin-top: 10px;
+    font-size: 13px;
+    padding: 8px 0;
+}
+
+.result-msg.success {
+    color: var(--success);
+}
+
+.result-msg.error {
+    color: var(--danger);
+}
+
+.result-msg.hidden {
+    display: none;
+}
